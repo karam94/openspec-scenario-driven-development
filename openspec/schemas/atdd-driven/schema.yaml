@@ -1,0 +1,346 @@
+name: atdd-driven
+version: 1
+description: >
+  A mutation of the default OpenSpec workflow that combines 
+  Spec-Driven Development, Vertical Slicing (Tracer Bullets)
+  and Acceptance Test-Driven Development (Double-Loop TDD) 
+  into a single iterative delivery model. Specifications 
+  are refined through small, end-to-end increments that 
+  provide fast feedback and continuous validation, enabling 
+  pragmatic and sustainable AI-assisted software engineering 
+  while avoiding the pitfalls of a waterfall approach.
+artifacts:
+  - id: grill
+    generates: grill.md
+    description: |
+      Grilling session that challenges a proposed change against 
+      the existing domain model, sharpens terminology, and
+      updates documentation (CONTEXT.md, ADRs) as decisions emerge.
+      The primary output is raw grill capture in grill.md. The invoked 
+      skill may also update durable project documentation such as 
+      CONTEXT.md and ADRs when decisions crystallise.
+    template: grill.md
+    instruction: |
+      PREREQUISITE — required skill availability:
+      Before invoking, verify that the exact skill `grill-with-docs` 
+      is available in the current skills list.
+
+      If `grill-with-docs` is missing:
+      - STOP immediately.
+      - Tell the user that the `grill-with-docs` skill is required.
+      - Tell the user to install or enable the Matt Pocock skills plugin.
+      - Do NOT continue with a manual or best-effort fallback.
+
+      Invoke the `grill-with-docs` skill using the Skill tool.
+
+      Output rules to follow:
+      - Write the full output from `grill-with-docs` to grill.md as raw capture.
+      - Do not impose headings, summaries, or template structure on grill.md.
+      - Do not create or pre-fill design.md, proposal.md, tasks.md, or specs
+        during this step unless explicitly prescribed by the `grill-with-docs` skill.
+      - Only update CONTEXT.md, ADRs, or other documents if the invoked skill
+        explicitly instructs those updates.
+    requires: []
+
+  - id: proposal
+    generates: proposal.md
+    description: |
+      Transforms the current conversation context & shared
+      understanding into a proposal document outlining
+      why the change is required.
+    template: proposal.md
+    instruction: >
+      Create the proposal document that establishes WHY this change is needed
+      based on the shared understanding & document of the grill output.
+
+      Since grill already explored the problem space,
+      this should be a concise extraction, not a new exploration.
+      Do NOT interview the user - just synthesize what you already know.
+
+      Sections:
+      - **Why**: 1-2 sentences on the problem or opportunity. What problem does
+      this solve? Why now? (from grill discussion)
+      - **What Changes**: Bullet list of changes. Be specific about new
+      capabilities, modifications, or removals. Mark breaking changes with
+      **BREAKING**.
+      - **Capabilities**: Identify which specs will be created or modified:
+        - **New Capabilities**: List capabilities being introduced. Each becomes a new `specs/<name>/spec.md`. Use kebab-case names (e.g., `user-auth`, `data-export`).
+        - **Modified Capabilities**: List existing capabilities whose REQUIREMENTS are changing. Only include if spec-level behavior changes (not just implementation details). Each needs a delta spec file. Check `openspec/specs/` for existing spec names. Leave empty if no requirement changes.
+      - **Impact**: Affected code, APIs, dependencies, or systems.
+
+      IMPORTANT: The Capabilities section is critical. It creates the contract
+      between proposal and specs phases. Research existing specs before filling this in.
+
+      Each capability listed here will need a corresponding spec file.
+
+      Keep it concise (1-2 pages). Focus on the "why" not the "how".
+    requires: 
+      - grill
+
+  - id: specs
+    generates: specs/**/*.md
+    description: |
+      Breaks down the information gathered in previous steps
+      about the proposed change into requirements and
+      Given/When/Then scenarios that describe expected
+      system behaviour.
+    template: spec.md
+    instruction: |
+      PREREQUISITE — exploration:
+      1. Explore the repo to understand the current state of the 
+        codebase, if you haven't already. Use the project's domain 
+        glossary vocabulary throughout any specs that you write, 
+        and respect any ADRs in the area you're touching.
+      2. Identify the seam through which each scenario will be tested.
+        Existing seams should be preferred to new ones.
+        Use the highest seam possible.
+        If new seams are needed, propose them at the highest point you can.
+        The fewer seams across the codebase, the better—the ideal number is one.
+
+      Check with the user that these seams match their expectations before continuing.
+
+      THE GOLDEN RULE:
+      Specs should be testable via a seam - each scenario is a non-negotiable 
+      acceptance test case. If a scenario cannot be tested through a seam, it 
+      is not a valid scenario.
+
+      INSTRUCTIONS:
+      - Create specification files that define WHAT the system should do.
+      - Requirements and scenarios MUST describe observable behaviour.
+      - Requirements and scenarios MUST NOT prescribe implementation details unless 
+      they are externally observable.
+      - Requirements should be comprehensive enough to cover the capability's observable 
+      behaviour without duplicating scenarios or specifying implementation details.
+      - Create one spec file per capability listed in the proposal document's 
+      Capabilities section.
+      - New capabilities: use the exact kebab-case name from the proposal
+      (specs/<capability>/spec.md).
+      - Modified capabilities: use the existing spec folder name from
+      openspec/specs/<capability>/ when creating the delta spec at
+      specs/<capability>/spec.md.
+
+      Delta operations (use ## headers):
+      - **ADDED Requirements**: New capabilities
+      - **MODIFIED Requirements**: Changed behavior - MUST include full updated
+      content
+      - **REMOVED Requirements**: Deprecated features - MUST include **Reason**
+      and **Migration**
+      - **RENAMED Requirements**: Name changes only - use FROM:/TO: format
+
+      Format requirements:
+      - Each requirement: `### Requirement: <name>` followed by description
+      - Use SHALL/MUST for normative requirements (avoid should/may)
+      - Each scenario: `#### Scenario: <name>` with GIVEN/WHEN/THEN format
+      - **CRITICAL**: Scenarios MUST use exactly 4 hashtags (`####`). Using 3
+      hashtags or bullets will fail silently.
+      - Every requirement MUST have at least one scenario.
+      - Every scenario MUST be independently verifiable through a testing seam.
+      - Each scenario includes supporting `##### Implementation Decisions`, 
+      `##### Testing Decisions`, `##### Out of Scope`, and `##### Further Notes` sections.
+      - Supporting sections MUST use exactly 5 hashtags (`#####`) so they are not mistaken 
+      for scenarios. Supporting sections are informative only and MUST NOT contradict or 
+      change the meaning of the requirement or scenario.
+
+      MODIFIED requirements workflow:
+      1. Locate the existing requirement in openspec/specs/<capability>/spec.md
+      2. Copy the ENTIRE requirement block (from `### Requirement:` through all
+      scenarios)
+      3. Paste under `## MODIFIED Requirements` and edit to reflect new behavior
+      4. Ensure header text matches exactly (whitespace-insensitive)
+
+      Common pitfall: Using MODIFIED with partial content loses detail at
+      archive time.
+
+      If adding new concerns without changing existing behavior, use ADDED
+      instead.
+
+
+      Example Requirements Structure:
+
+      ```
+
+      ## ADDED Requirements
+
+      ### Requirement: User can export data
+
+      The system SHALL allow users to export their data in CSV format.
+
+      #### Scenario: Successful export
+      - **GIVEN** the user has data available to export
+      - **WHEN** user clicks "Export" button
+      - **THEN** system downloads a CSV file with all user data
+
+      ##### Architectural Decisions
+      A list of high-level architectural decisions that we know will be necessary at the requirement phase.
+      Do NOT include specific file paths, code snippets or implementation detail. They may end up being outdated very quickly.
+      
+      This can include:
+      - The interfaces/contracts of the system that will be modified
+      - Technical clarifications from the developer
+      - Architectural decisions
+      - Schema changes
+      - API contracts
+      - Specific interactions
+      - Trade-offs
+
+      ##### Testing Decisions
+      A breakdown of how the scenario will be verified through its chosen testing seam. Include:
+
+      - Identify the seam through which the scenario will be tested (acceptance test, outside-in, (only test 
+      external behavior, not implementation details))
+      - Describe what observable behaviour will be asserted
+      - List the modules that will be exercised in the test
+      - Prior art for the tests (i.e. similar types of tests in the codebase)
+
+      ##### Out of Scope
+      
+      - Explicitly list behaviours that are not covered by this requirement.
+      - Include concerns raised during exploration that are intentionally deferred.
+
+      ##### Further Notes
+      ...
+
+      ## REMOVED Requirements
+
+      ### Requirement: Legacy export
+      **Reason**: Replaced by new export system
+      **Migration**: Use new export endpoint at /api/v2/export
+      ```
+    requires:
+      - proposal
+
+  - id: design
+    generates: design.md
+    description: Technical design document with implementation details
+    template: design.md
+    instruction: |
+      Create the design document that explains HOW to implement the change.
+
+      When to include design.md (create only if any apply):
+      - Cross-cutting change (multiple services/modules) or new architectural pattern
+      - New external dependency or significant data model changes
+      - Security, performance, or migration complexity
+      - Ambiguity that benefits from technical decisions before coding
+
+      Sections:
+      - **Context**: Background, current state, constraints, stakeholders
+      - **Goals / Non-Goals**: What this design achieves and explicitly excludes
+      - **Decisions**: Key technical choices with rationale (why X over Y?). Include alternatives considered for each decision.
+      - **Risks / Trade-offs**: Known limitations, things that could go wrong. Format: [Risk] → Mitigation
+      - **Migration Plan**: Steps to deploy, rollback strategy (if applicable)
+      - **Open Questions**: Outstanding decisions or unknowns to resolve
+
+      Focus on architecture and approach, not line-by-line implementation.
+      Reference the proposal for motivation and specs for requirements.
+
+      Good design docs explain the "why" behind technical decisions.
+    requires:
+      - proposal
+      - specs
+
+  - id: tasks
+    generates: tasks.md
+    description: |
+      Breaks down a spec into an implementation checklist with 
+      trackable tasks using tracer-bullet vertical slices.
+    template: tasks.md
+    instruction: >
+      Break a plan into independent implementable tasks using 
+      vertical slices (tracer bullets).
+
+      PREREQUISITES:
+      1. Gather context from the existing spec & design documents.
+      2. If after reading the spec & design documents, you are uncertain
+      about anything then explore the codebase or ask the user.
+      3. Always look for opportunities to prefactor the code to
+      make implementation easier. Therefore, where prefactoring is 
+      required, create explicit prefactoring tasks before implementation tasks.
+
+      THE GOLDEN RULE:
+      Tasks exist to make scenarios pass through their identified seams.
+
+      WHAT ARE VERTICAL SLICES (TRACER BULLETS)?
+      - A thin vertical slice that cuts through ALL integration layers 
+      end-to-end, NOT a horizontal slice of one layer.
+      - Each slice delivers the minimum end-to-end change required for 
+      one or more scenarios to pass through their identified seam.     
+      - A completed slice is demoable or verifiable on its own
+      - A completed slice is testable via a seam
+      - Any prefactoring should be done first
+
+      **IMPORTANT: Follow the template below exactly.** The apply phase parses
+      checkbox format to track progress. Tasks not using `- [ ]` won't be
+      tracked.
+
+      Guidelines:
+      - Group related tasks under ## numbered headings
+      - Each task MUST be a checkbox: `- [ ] X.Y Task description`
+      - Tasks should be small enough to complete in one session
+      - Tasks SHOULD describe outcomes, not implementation mechanics where possible
+      - Order tasks by dependency (what must be done first?)
+      - When creating tasks, work backwards from the scenarios and seams identified in the spec.
+        Tasks exist to make scenarios pass, not to implement layers of the architecture.
+      - For every scenario, there MUST be a task that introduces or updates the acceptance test.
+      - For every scenario, there MUST be a task that verifies the acceptance test passes through the chosen seam.
+      - A scenario is only complete when its acceptance test passes.
+      
+      Traceability:
+      - Every scenario from the spec MUST be traceable to one or more task groups.
+      - Every task group MUST reference the scenario it exists to satisfy.
+      - Every scenario MUST have an identified acceptance seam.
+
+      Example:
+      ```
+      ## 1. Scenario: Successful export
+
+      Acceptance Seam:
+      Export API
+
+      Scenario:
+      - **GIVEN** the user has data available to export
+      - **WHEN** user clicks "Export" button
+      - **THEN** system downloads a CSV file with all user data
+
+      Tasks:
+      - [ ] 1.1 Create an isolated git workspace for the scenario change
+      - [ ] 1.2 RED: Add failing acceptance test for "Successful export" through the Export API seam
+      - [ ] 1.3 Implement the minimum change required for the scenario acceptance test to pass
+      - [ ] 1.4 Verify "Successful export" acceptance test passes & exercises the Export API seam
+      - [ ] 1.5 GREEN: Verify all tests pass
+      - [ ] 1.6 Commit to git
+      - [ ] 1.7 REFACTOR: Refactor
+      - [ ] 1.8 Verify all tests still pass
+      - [ ] 1.9 Commit to git & declare completion
+      ```
+
+      Reference specs for what needs to be built, design for how to build it.
+
+      When you are done, ask the user for feedback & iterate until they approve.
+    requires:
+      - specs
+      - design
+
+apply:
+  requires:
+    - specs
+    - design
+    - tasks
+  tracks: tasks.md
+  instruction: |
+    PREREQUISITE — required skill availability:
+      Before invoking, verify that the exact skills `atdd` & `codebase-design` 
+      are available in the current skills list.
+
+      If either are missing:
+      - STOP immediately.
+      - Tell the user which skill is required & missing.
+      - Tell the user to install or enable the Matt Pocock skills plugin.
+      - Do NOT continue with a manual or best-effort fallback.
+    
+    Create a new git branch for the change.
+    Read the context files.
+    Invoke the `atdd` skill using the Skill tool & work through each scenario one by one, 
+    mark tasks complete as you go.
+    Stop after every completed scenario & ask the user to review before continuing.
+    Pause if you hit blockers or need clarification.
+    You are not done until all tests pass (unit & integration).
