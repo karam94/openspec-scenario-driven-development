@@ -162,8 +162,16 @@ artifacts:
       ## ADDED Requirements
 
       ### Requirement: User can export data
+      Requirements should read like plain English expectations, not legal contracts.
+      Begin each requirement with a single normative statement using SHALL or MUST that defines the behavioural contract.
+      The remainder of the requirement should elaborate on the behaviour using natural language. Describe expectations, important relationships, constraints & invariants in prose rather than repeating SHALL/MUST on every sentence.
+      A good requirement should read as though you are explaining the behaviour to another experienced software engineer.
 
-      The system SHALL allow users to export their data in CSV format.
+      The system SHALL allow users to export their data in CSV format. 
+      Users can export all of the data associated with their account as a single CSV file. 
+      The exported file contains a complete & consistent snapshot of the user's data at the time 
+      the export is requested, using a format that can be opened by common spreadsheet applications. 
+      Empty datasets still produce a valid CSV rather than an error.
 
       #### Scenario: Successful export
       - **GIVEN** the user has data available to export

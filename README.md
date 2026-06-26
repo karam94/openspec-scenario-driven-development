@@ -33,25 +33,81 @@ Scenario-Driven Development does **not** reject Specification-Driven Development
 
 The result is a workflow that embraces the strengths of AI while remaining grounded in proven software engineering principles: small iterations, rapid feedback from trusted automated tests & design that emerges from working software rather than upfront planning.
 
-## What is a Scenario?
+## What is a Scenario & how does it differ from a Requirement?
 
-Whilst Scenario-Driven Development uses the familiar Given/When/Then format from BDD, the scenario is only one part of a larger requirement. Each scenario sits beneath a behavioural requirement, which describes the capability in natural language & provides added context that the Given/When/Then alone cannot.
+A Scenario in Scenario-Driven Development describes a single observable system behaviour using the familiar GIVEN/WHEN/THEN format. It defines an acceptance test case that can be verified end-to-end through an external testing seam. Every scenario must be independently deliverable, delivering a vertical slice across the entire system.
 
-This follows the principles of Specification by Example. The requirement describes the behaviour. The scenarios provide concrete examples of that behaviour. A single requirement will often contain multiple scenarios covering the expected behaviour of the capability.
+A Scenario does not exist in isolation. It belongs to an overarching Requirement, which describes a capability in natural language & provides the wider context needed to understand a system capability as a whole. Whilst the requirement defines the behavioural contract, one or more Scenarios provide concrete examples that prove the system adheres to the Requirement.
 
-A good scenario is:
+This follows the principles of Specification by Example. The Requirement describes the behaviour. The Scenarios provide concrete examples of that behaviour. A single Requirement will often contain multiple Scenarios covering the expected behaviour of the capability.
 
-Behaviour-focused — describes observable system behaviour, not implementation details.
-Acceptance-testable — can be verified end-to-end through an external testing seam.
-Independently deliverable — can be implemented, reviewed & validated in a single iteration.
-A vertical slice — delivers working software across the entire system rather than completing one technical layer.
-A learning opportunity — provides feedback that informs the design of the scenarios that follow.
+### Why not just define Scenarios in isolation & have the agent work through them?
 
-Importantly, the AI agent should not treat the Given/When/Then as an exhaustive implementation checklist.
+Software requirements are often broader & more nuanced than a single GIVEN/WHEN/THEN. Some requirements are inherently broad enough to require multiple observable behaviours, whilst others begin as vague ideas that become clearer through refinement. A requirement typically describes capability through multiple scenarios, each demonstrating a different observable behaviour. For example, a single requirement may contain a happy path scenario, a sad path scenario & several edge case scenarios.
 
-Instead, it should first understand the surrounding requirement, architectural decisions, testing decisions & domain context. It should then determine the smallest vertical slices required to satisfy the scenario. Those slices may include additional implementation work, acceptance tests or edge cases that are implied by the requirement but not explicitly written in the Given/When/Then.
+Separating Requirements from Scenarios keeps iterations small whilst preserving the bigger picture. The Requirement communicates the capability as a whole, whilst each Scenario provides a single, independently deliverable behaviour that contributes towards satisfying that Requirement. A scenario defines a single observable behaviour that contributes towards satisfying a requirement. For example, a single GIVEN/WHEN/THEN cannot communicate architectural constraints, testing decisions, domain terminology or non-functional requirements without additional context.
 
-The Given/When/Then defines the behaviour that must be observable. The implementation discovers everything required to make that behaviour a reality.
+When implementing a Scenario, the AI agent first understands the Requirement in the context of the overall system, architectural decisions, testing decisions, domain language & existing codebase. It then determines the smallest vertical slices required to satisfy that Scenario. Those slices may include implementation work, acceptance tests or edge cases that are implied by the Requirement but not explicitly written in the GIVEN/WHEN/THEN. 
+
+More often than not, a single Scenario will map to a single acceptance test. However, by giving the agent the context of the entire Requirement, it is able to reason about implied behaviour, implementation trade-offs & edge cases instead of simply translating the GIVEN/WHEN/THEN into code.
+
+The scenario defines a behaviour that must be observable. The Requirement provides the context for the scenario. The implementation discovers everything required to make that behaviour a reality.
+
+### An Example Requirement
+Note: Templates are still a work in progress.
+
+```markdown
+### Requirement: Authenticated user can upload an avatar
+
+The system SHALL allow authenticated users to upload a profile avatar. Users upload an image via `POST /api/users/me/avatar` using `multipart/form-data`. Exactly one image file is accepted. The image is validated, processed into a canonical 256×256 square WebP avatar (center-cropped where necessary), stored, and the resulting public URL is persisted to `User.image`. Uploads are always scoped to the authenticated user (`/me`), meaning users can only upload or replace their own avatar. A successful upload replaces any existing avatar rather than creating multiple avatars for the same user.
+
+#### Scenario: Successful upload of a square JPEG
+- **GIVEN** an authenticated user whose `User.image` is `null`
+- **WHEN** the user posts a valid 512×512 JPEG under 5 MB to `/api/users/me/avatar`
+- **THEN** the system responds `200` with the new avatar URL
+- **AND** `User.image` for that user is updated to a public URL whose path is `avatars/<userId>.webp` with a `?v=<timestamp>` cache-bust query parameter
+- **AND** a processed avatar object (256×256 WebP) has been stored at key `avatars/<userId>.webp`
+
+#### Scenario: Non-square image is center-cropped to square
+- **GIVEN** an authenticated user
+- **WHEN** the user posts a valid 1000×750 (non-square) image
+- **THEN** the system responds `200` and stores a 256×256 square processed avatar (center-cropped), not the original aspect ratio
+
+#### Scenario: Re-upload overwrites the previous avatar
+- **GIVEN** an authenticated user who already has an avatar (`User.image` set)
+- **WHEN** the user posts a new valid image
+- **THEN** the system overwrites the stored object at the same key `avatars/<userId>.webp`
+- **AND** `User.image` is updated with a new `?v=<timestamp>` value so caches refetch
+- **AND** no second/orphan object is created (one object per user)
+
+#### Scenario: Storage write succeeds before the database is updated
+- **GIVEN** an authenticated user
+- **WHEN** the user posts a valid image
+- **THEN** the processed avatar is written to storage first, and `User.image` is only updated after the storage write succeeds
+- **AND** the database never holds a URL pointing at a non-existent stored object
+
+##### Architectural Decisions
+- New `POST /api/users/me/avatar` TSed controller action accepting `multipart/form-data`; current user resolved via the existing current-user decorator. `/me` scoping eliminates any IDOR surface (no user id in the path).
+- Upload is processed server-side, in-process: validate → resize/normalize with `sharp` → store via the `StorageService` port → write URL to `User.image` via the user repository.
+- Canonical processed avatar is exactly one 256×256 square WebP, center-cropped for non-square inputs. One size only; clients downscale via CSS.
+- `User.image` is plain profile data; no domain behavior or invariants are added to the `User` aggregate.
+- R2-first write ordering: the stored object must exist before the DB URL is persisted, so a DB-write failure can at worst orphan a tiny file, never produce a dangling URL.
+
+##### Testing Decisions
+- Seam: the existing controller integration-test harness (`bootstrapIntegrationTest` + supertest), same pattern as `change-password.integration.test.ts`. The HTTP endpoint, multipart parsing, auth, use-case, and repository are all exercised against a real Postgres.
+- A `FakeStorageService` (in-memory) is swapped in via the existing `swaps` mechanism on the bootstrap helper (identical to how `MockEmailService` / `MockPaymentService` are injected today). The fake records `put`/`delete` calls and exposes stored bytes by key, so scenarios assert the object exists and is a 256×256 WebP without needing real R2 or its credentials.
+- Modules exercised: the avatar controller, the upload/remove use-cases, `User` repository, `sharp`-based processing, and the `FakeStorageService`. Asserts observable HTTP status, the persisted `User.image` value shape, and the fake's recorded storage operations.
+
+##### Out of Scope
+- Multi-size avatar variants (32/64/128/256). One 256×256 size only.
+- Animated avatar formats (GIF/AVIF) and SVG.
+- Background/async processing via Inngest — avatars are processed synchronously in-process.
+- Orphan-file reconciliation/cleanup job; failed-retry overwrites the same key idempotently.
+- Locking or serialization of concurrent same-user uploads (last-write-wins by design).
+
+##### Further Notes
+- The stored URL includes a `?v=<updatedAt>` param precisely so the immutable-looking key `avatars/<userId>.webp` can be safely overwritten while still defeating stale CDN/browser caches. See ADR-0001.
+```
 
 ## Workflow
 
