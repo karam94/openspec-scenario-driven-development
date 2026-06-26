@@ -87,7 +87,7 @@ The system SHALL allow authenticated users to upload a profile avatar. Users upl
 - **AND** the database never holds a URL pointing at a non-existent stored object
 
 ##### Architectural Decisions
-- New `POST /api/users/me/avatar` TSed controller action accepting `multipart/form-data`; current user resolved via the existing current-user decorator. `/me` scoping eliminates any IDOR surface (no user id in the path).
+- New `POST /api/users/me/avatar` controller action accepting `multipart/form-data`; current user resolved via the existing current-user decorator. `/me` scoping eliminates any IDOR surface (no user id in the path).
 - Upload is processed server-side, in-process: validate → resize/normalize with `sharp` → store via the `StorageService` port → write URL to `User.image` via the user repository.
 - Canonical processed avatar is exactly one 256×256 square WebP, center-cropped for non-square inputs. One size only; clients downscale via CSS.
 - `User.image` is plain profile data; no domain behavior or invariants are added to the `User` aggregate.
@@ -129,5 +129,8 @@ Produces a concise document that formalises the **why** (not the how) behind any
 #### 1.5 Tasks
 With scenarios defined & high-level architecture decisions made, this knowledge is combined. Breaks down each scenario in to a set of one or more vertical slices & the high-level tasks required to implement it with a RED/GREEN/REFACTOR cycle. The tasks are high-level & do not describe step by step what code changes are required - this is intentional because the implementation detail should not be decided up front & will likely be inaccurate for complex projects.
 
-**Phase 2: Solving the problem** — work the tasks through the ATDD cycle: red acceptance test → minimal code to green → refactor, one vertical slice at a time.
+### Phase 2: Solving the problem** 
+Implements one scenario at a time from 1.5 using Acceptance Test Driven Development (double-loop TDD).
+Upon completion, performs a code review of the changes with another model before a final code review requested from the human.
+When all parties are satisfied, commit is done before moving on to implementing the next scenario.
 
