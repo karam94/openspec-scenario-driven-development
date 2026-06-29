@@ -113,6 +113,87 @@ The system SHALL allow authenticated users to upload a profile avatar. Users upl
 
 The workflow has two phases:
 
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 30, 'rankSpacing': 30, 'curve': 'linear'}, 'themeVariables': {'fontSize': '12px'}}}%%
+flowchart TD
+    start(["opsx:new requirement-name --schema atdd-driven"]):::trigger
+
+    subgraph P1["Phase 1 — Understanding the problem"]
+
+        grill["<strong>Grill</strong><br/><br/>A grilling session that ensures a common understanding of the problem that requires solving relative to the existing system between the user & the AI agent.<br/><br/>🛠️ <a href='.claude/skills/grill-with-docs/SKILL.md'>grill-with-docs</a>"]:::step
+        proposal["<strong>Proposal</strong><br/><br/>Produces a concise document that formalises the why (not the how) behind the change required as per the previous discussion. The user is expected to iterate on this if they feel the AI agent is still lacking rationale & understanding."]:::step
+        specs["<strong>Specs</strong><br/><br/>Breaks down the proposed change into formalised requirements supplemented with GIVEN/WHEN/THEN scenarios that describe the new expected system behaviour. Each scenario's behaviour should be testable & its testing boundary seam is identified."]:::step
+        design["<strong>Design</strong><br/><br/>Produces a concise document that formalises the why (not the how) behind any major high-level architectural decisions (cross-cutting changes, external dependencies, security, ambiguity, etc) that the current requirements will require. No code is to be written at this stage. The user is expected to iterate on this if they feel the AI agent is proposing something infeasible."]:::step
+        tasks["<strong>Tasks</strong><br/><br/>With scenarios defined & high-level architecture decisions made, this knowledge is combined. Breaks down each scenario in to a set of one or more vertical slices & the high-level tasks required to implement it with a RED/GREEN/REFACTOR cycle. The tasks are high-level & do not describe step by step what code changes are required - this is intentional because the implementation detail should not be decided up front & will likely be inaccurate for complex projects."]:::step
+
+        o_grill1["📄 grill.md"]:::out
+        o_grill2["📄 CONTEXT.md"]:::out
+        o_grill3["📄 docs/adr/*.md"]:::out
+        o_proposal["📄 proposal.md"]:::out
+        o_specs["📄 specs/**/*.md"]:::out
+        o_design["📄 design.md"]:::out
+        o_tasks["📄 tasks.md"]:::out
+
+        grill --> o_grill1 & o_grill2 & o_grill3
+        proposal --> o_proposal
+        specs --> o_specs
+        design --> o_design
+        tasks --> o_tasks
+
+        grill -->|/opsx:continue| proposal
+        proposal -->|iterate| grill
+        proposal -->|/opsx:continue| specs
+        specs -->|iterate| proposal
+        specs -->|/opsx:continue| design
+        design -->|iterate| specs
+        design -->|/opsx:continue| tasks
+        tasks -->|iterate| design
+    end
+
+    subgraph P2["Phase 2 — Apply (double-loop ATDD)"]
+
+        red["<strong>RED</strong> — outer loop<br/><br/>Write a failing acceptance test for the next scenario through its identified seam.<br/><br/>🛠️ <a href='.claude/skills/atdd/SKILL.md'>atdd</a> · <a href='.claude/skills/codebase-design/SKILL.md'>codebase-design</a>"]:::tdd
+
+        subgraph green["GREEN — make the acceptance test pass"]
+            redu["<strong>RED</strong> — inner loop<br/><br/>Write a failing unit test for the behaviour needed next."]:::tddinner
+            greenu["<strong>GREEN</strong> — inner loop<br/><br/>Make the unit test pass with the minimum change."]:::tddinner
+            refactoru["<strong>REFACTOR</strong> — inner loop<br/><br/>Refactor the component; unit tests stay green."]:::tddinner
+
+            redu --> greenu --> refactoru
+            refactoru -->|acceptance still failing| redu
+        end
+
+        refactor["<strong>REFACTOR</strong> — outer loop<br/><br/>Refactor the whole system; all tests stay green."]:::tdd
+
+        red --> green
+        green --> refactor
+    end
+
+    subgraph P3["Phase 3 — Review & Commit"]
+
+        review1["<strong>AI code review</strong><br/><br/>Upon completion, performs a code review of the changes with another model."]:::step
+        review2["<strong>Human code review</strong><br/><br/>A final code review is then requested from the human."]:::step
+        commit["<strong>Commit</strong><br/><br/>When all parties are satisfied, a commit is done before moving on to implementing the next scenario."]:::step
+
+        review1 --> review2 --> commit
+    end
+
+    start --> grill
+    tasks -->|/opsx:continue| red
+    refactor -->|/opsx:continue| review1
+    commit -->|all scenarios complete| done(["Change delivered"]):::done
+
+    classDef step fill:#1f2937,stroke:#374151,color:#e5e7eb
+    classDef trigger fill:#2563eb,stroke:#1d4ed8,color:#ffffff
+    classDef done fill:#059669,stroke:#047857,color:#ffffff
+    classDef out fill:#78350f,stroke:#92400e,color:#fde68a
+    classDef tdd fill:#1e3a8a,stroke:#3730a3,color:#bfdbfe
+    classDef tddinner fill:#1e293b,stroke:#334155,color:#cbd5e1
+    linkStyle 7,9,11,13,17,23,24 stroke:#16a34a,color:#16a34a
+    linkStyle 8,10,12,14 stroke:#dc2626,color:#dc2626,stroke-dasharray: 5 5
+```
+
+
 ### Phase 1: Understanding the problem
 #### 1.1 Grill
 A grilling session that ensures a common understanding of the problem that requires solving relative to the existing system between the user & the AI agent.
