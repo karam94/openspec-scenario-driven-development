@@ -1,3 +1,6 @@
 # Claude
 .claude/settings.json
 .claude/z.settings.json
+
+# macOS
+.DS_Store
