@@ -7,7 +7,21 @@ Specifications are refined through small, end-to-end increments that provide fas
 
 ## Install
 
-TODO
+Extract this package over the root of an existing repository, preserving symlinks. The overlay adds the `atdd-driven` OpenSpec schema, canonical skills and agent prompts, plus thin Claude and Kiro adapters.
+
+The tool directories contain registrations only. Canonical behaviour remains in `skills/` and `agents/prompts/`, so the OpenSpec workflow does not depend on either tool's agent format.
+
+## Agent architecture
+
+The OpenSpec schema delegates work to generic role names:
+
+- **Grill** → `product-manager` → `grill-with-docs`
+- **Proposal, Specs, Design, Tasks, Apply** → `engineer` → `openspec-atdd`, `codebase-design`, and `atdd`
+- **Apply review gate** → a fresh `code-reviewer` subagent → `code-review`
+
+The Engineer and Code Reviewer adapters deliberately select different models. The Engineer must invoke `code-reviewer` by agent identity and preserve the reviewer's configured model rather than allowing it to inherit the Engineer model.
+
+Claude and Kiro discover skills through symlinks from their tool-specific skill directories to the canonical top-level `skills/` directory.
 
 ## Why?
 

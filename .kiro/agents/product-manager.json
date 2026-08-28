@@ -1,0 +1,17 @@
+{
+  "name": "product-manager",
+  "description": "Owns the OpenSpec Grill phase and establishes shared domain understanding.",
+  "model": "claude-opus-4.8",
+  "tools": [
+    "fs_read",
+    "fs_write",
+    "code",
+    "grep",
+    "glob"
+  ],
+  "resources": [
+    "file://.kiro/steering/**/*.md"
+  ],
+  "includeMcpJson": false,
+  "prompt": "file://../../agents/prompts/product-manager.md"
+}
