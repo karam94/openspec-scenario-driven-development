@@ -16,7 +16,10 @@
     "report",
     "tool_search",
     "@kirocrew-core",
-    "@kirocrew-dashboard"
+    "@kirocrew-dashboard/session_create",
+    "@kirocrew-dashboard/session_send",
+    "@kirocrew-dashboard/session_read_message",
+    "@kirocrew-dashboard/session_stop"
   ],
   "allowedTools": [
     "web_fetch",
@@ -29,9 +32,7 @@
     "@kirocrew-dashboard/session_create",
     "@kirocrew-dashboard/session_send",
     "@kirocrew-dashboard/session_read_message",
-    "@kirocrew-dashboard/session_stop",
-    "@kirocrew-dashboard/chat_folder_tree",
-    "@kirocrew-dashboard/chat_folder_create"
+    "@kirocrew-dashboard/session_stop"
   ],
   "resources": [
     "file://.kiro/steering/**/*.md",

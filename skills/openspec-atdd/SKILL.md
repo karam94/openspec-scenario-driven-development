@@ -78,7 +78,7 @@ Skip this step when Kiro Crew is not being used.
 
 The Grill is an interactive interview (see "The Grill is interactive"). On Kiro Crew the Engineer stands up a live `product-manager` session for it with the `session_create` tool. The Kiro Engineer adapter (`.kiro/agents/engineer.json`) already ships this wiring:
 
-- `@kirocrew-core` and `@kirocrew-dashboard` are declared in the adapter's `tools` and `allowedTools` (the dashboard entry scoped to `session_create` / `session_send` / `session_read_message` / `session_stop`; `@kirocrew-core` provides `ask_question`).
+- `@kirocrew-core` and the four `@kirocrew-dashboard` session tools (`session_create` / `session_send` / `session_read_message` / `session_stop`) are declared in the adapter's `tools` and `allowedTools` — the dashboard entries are listed individually rather than as a server wildcard, so the Engineer can reach only those session tools. `@kirocrew-core` provides `ask_question` (and the `spawn_run` the Engineer already uses for the independent review gate).
 - Both servers are declared under `mcpServers` as `kirocrew mcp-core` / `kirocrew mcp-dashboard`, resolved from `PATH` so the config stays host-agnostic (no absolute paths). This assumes the `kirocrew` launcher is on `PATH`, which is the case on a KiroCrew install.
 
 On a host without KiroCrew (plain Kiro CLI, Claude, another OS) the `kirocrew` command simply will not resolve, the MCP servers will not start, and the Engineer falls back to the schema's STOP-and-hand-off behaviour rather than running a non-interactive Grill — no edit required.
