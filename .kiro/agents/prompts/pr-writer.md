@@ -1,0 +1,1 @@
+../../../agents/prompts/pr-writer.md

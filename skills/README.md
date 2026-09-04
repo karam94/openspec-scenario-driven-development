@@ -7,6 +7,7 @@ Single, tool-agnostic home for the skills the atdd-driven OpenSpec workflow depe
 - `codebase-design/` — deep-module design guidance.
 - `atdd/` — acceptance test-driven development through outside-in RED/GREEN/REFACTOR.
 - `code-review/` — independent, read-only review with structured findings and a verdict.
+- `pr-writing/` — canonical PR body template and Conventional Commits standard for authoring pull requests.
 
 These live here **once**. Each tool's skills directory holds a symlink back to this folder, so there is a single source of truth and the copies cannot drift:
 
