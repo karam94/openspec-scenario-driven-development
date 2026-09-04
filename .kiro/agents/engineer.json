@@ -20,5 +20,5 @@
     "skill://.kiro/skills/openspec-atdd/SKILL.md"
   ],
   "includeMcpJson": false,
-  "prompt": "file://../../agents/prompts/engineer.md"
+  "prompt": "file://./prompts/engineer.md"
 }

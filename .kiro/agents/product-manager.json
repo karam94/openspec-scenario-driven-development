@@ -13,5 +13,5 @@
     "file://.kiro/steering/**/*.md"
   ],
   "includeMcpJson": false,
-  "prompt": "file://../../agents/prompts/product-manager.md"
+  "prompt": "file://./prompts/product-manager.md"
 }

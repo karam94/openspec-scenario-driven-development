@@ -12,5 +12,5 @@
     "file://.kiro/steering/**/*.md"
   ],
   "includeMcpJson": false,
-  "prompt": "file://../../agents/prompts/code-reviewer.md"
+  "prompt": "file://./prompts/code-reviewer.md"
 }
