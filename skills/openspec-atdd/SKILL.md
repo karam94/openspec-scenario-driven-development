@@ -74,14 +74,14 @@ cp -f .kiro/prompts/opsx-*.prompt.md "$HOME/.kiro/prompts/"
 
 Skip this step when Kiro Crew is not being used.
 
-### 7. Kiro Crew — enable the interactive Grill
+### 7. Kiro Crew — the interactive Grill is pre-wired
 
-The Grill is an interactive interview (see "The Grill is interactive"). On Kiro Crew the Engineer stands up a live `product-manager` session for it with the `session_create` tool, which comes from the KiroCrew `@kirocrew-dashboard` MCP server (`@kirocrew-core` provides `ask_question`). Grant these to the Engineer adapter so it can spawn the interactive Grill:
+The Grill is an interactive interview (see "The Grill is interactive"). On Kiro Crew the Engineer stands up a live `product-manager` session for it with the `session_create` tool. The Kiro Engineer adapter (`.kiro/agents/engineer.json`) already ships this wiring:
 
-- Add `@kirocrew-core` and `@kirocrew-dashboard` to the Engineer adapter's `tools` and `allowedTools` (scope the dashboard entry to `session_create` / `session_send` / `session_read_message` / `session_stop`).
-- Declare both servers under the adapter's `mcpServers`, each running your local KiroCrew backend binary with the `mcp-core` / `mcp-dashboard` argument. These paths are host-specific, so configure them per install rather than committing them to the bundle.
+- `@kirocrew-core` and `@kirocrew-dashboard` are declared in the adapter's `tools` and `allowedTools` (the dashboard entry scoped to `session_create` / `session_send` / `session_read_message` / `session_stop`; `@kirocrew-core` provides `ask_question`).
+- Both servers are declared under `mcpServers` as `kirocrew mcp-core` / `kirocrew mcp-dashboard`, resolved from `PATH` so the config stays host-agnostic (no absolute paths). This assumes the `kirocrew` launcher is on `PATH`, which is the case on a KiroCrew install.
 
-Skip this step when Kiro Crew is not being used. Without it, a Kiro Crew Engineer that reaches the Grill will correctly STOP and hand off (per the schema) rather than run a non-interactive Grill.
+On a host without KiroCrew (plain Kiro CLI, Claude, another OS) the `kirocrew` command simply will not resolve, the MCP servers will not start, and the Engineer falls back to the schema's STOP-and-hand-off behaviour rather than running a non-interactive Grill — no edit required.
 
 ### 8. Confirm setup
 
