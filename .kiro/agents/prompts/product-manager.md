@@ -1,0 +1,1 @@
+../../../agents/prompts/product-manager.md

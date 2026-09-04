@@ -23,6 +23,8 @@ The Engineer and Code Reviewer adapters deliberately select different models. Th
 
 Claude and Kiro discover skills through symlinks from their tool-specific skill directories to the canonical top-level `skills/` directory.
 
+Kiro agent prompts follow the same pattern: `.kiro/agents/prompts/<name>.md` symlinks to the canonical `agents/prompts/<name>.md`, and each Kiro agent references it with `file://./prompts/<name>.md` (the `./` form anchors to the agent's own folder). When installing the `.kiro/agents/` overlay into a global location such as `~/.kiro/agents/` instead of a repository root, dereference the symlinks (`cp -RL`) so the copied prompts land as real files.
+
 ## Why?
 
 AI coding agents have made Specification-Driven Development mainstream & for good reason. Giving an agent a clear specification is far better than relying on vague prompts.
