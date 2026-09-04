@@ -18,6 +18,7 @@ The OpenSpec schema delegates work to generic role names:
 - **Grill** → `product-manager` → `grill-with-docs`
 - **Proposal, Specs, Design, Tasks, Apply** → `engineer` → `openspec-atdd`, `codebase-design`, and `atdd`
 - **Apply review gate** → a fresh `code-reviewer` subagent → `code-review`
+- **PR authoring** (after review, on request) → `pr-writer` → `pr-writing`
 
 The Engineer and Code Reviewer adapters deliberately select different models. The Engineer must invoke `code-reviewer` by agent identity and preserve the reviewer's configured model rather than allowing it to inherit the Engineer model.
 

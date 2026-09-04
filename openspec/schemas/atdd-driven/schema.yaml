@@ -385,6 +385,12 @@ apply:
       own work or let the reviewer inherit the Engineer model. Apply is complete
       only after the reviewer returns `APPROVE`.
 
+      After the reviewer returns `APPROVE`, if the invoking workflow asks for a
+      pull request, delegate to the `pr-writer` agent (which follows the
+      `pr-writing` skill) to author a Conventional Commits title and a body from
+      the standard PR template. The PR writer opens the PR only when explicitly
+      asked and never merges or rewrites published history.
+
     PREREQUISITE — required skill availability:
       Before invoking, verify that the exact skills `atdd` & `codebase-design` 
       are available in the current skills list.
