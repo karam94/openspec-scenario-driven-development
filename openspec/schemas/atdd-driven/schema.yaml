@@ -31,6 +31,28 @@ artifacts:
       - Tell the user that the package's Product Manager adapter is missing.
       - Do NOT perform the Grill phase with the current agent as a fallback.
 
+      INTERACTIVE — required conduct:
+      The Grill is a live interview with the user. `grill-with-docs` asks
+      questions one at a time and waits for the user's answer before continuing.
+      The `product-manager` MUST be reached through a channel that lets the user
+      answer each question turn by turn — either the user converses with the
+      `product-manager` directly, or an interactive session/subagent whose
+      questions surface to the user and whose answers route back.
+
+      A non-interactive, one-shot, or autonomous Grill — one where the agent
+      answers its own questions or runs with no live user channel — is NOT a
+      valid Grill and is NOT an acceptable fallback, even when it produces a
+      plausible grill.md.
+
+      If the current tool cannot give the `product-manager` an interactive
+      channel to the user:
+      - STOP. Do not fabricate a Grill.
+      - Tell the user the runtime cannot host an interactive Grill through a
+        subagent.
+      - Have the user run the `product-manager` interactively (a direct
+        `product-manager` session) until the interview is complete and grill.md
+        is written, then resume the workflow from grill.md on disk.
+
       PREREQUISITE — required skill availability:
       Before invoking, verify that the exact skill `grill-with-docs` 
       is available in the current skills list.

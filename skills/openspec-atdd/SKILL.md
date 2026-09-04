@@ -74,7 +74,16 @@ cp -f .kiro/prompts/opsx-*.prompt.md "$HOME/.kiro/prompts/"
 
 Skip this step when Kiro Crew is not being used.
 
-### 7. Confirm setup
+### 7. Kiro Crew — enable the interactive Grill
+
+The Grill is an interactive interview (see "The Grill is interactive"). On Kiro Crew the Engineer stands up a live `product-manager` session for it with the `session_create` tool, which comes from the KiroCrew `@kirocrew-dashboard` MCP server (`@kirocrew-core` provides `ask_question`). Grant these to the Engineer adapter so it can spawn the interactive Grill:
+
+- Add `@kirocrew-core` and `@kirocrew-dashboard` to the Engineer adapter's `tools` and `allowedTools` (scope the dashboard entry to `session_create` / `session_send` / `session_read_message` / `session_stop`).
+- Declare both servers under the adapter's `mcpServers`, each running your local KiroCrew backend binary with the `mcp-core` / `mcp-dashboard` argument. These paths are host-specific, so configure them per install rather than committing them to the bundle.
+
+Skip this step when Kiro Crew is not being used. Without it, a Kiro Crew Engineer that reaches the Grill will correctly STOP and hand off (per the schema) rather than run a non-interactive Grill.
+
+### 8. Confirm setup
 
 Confirm that:
 
@@ -107,7 +116,7 @@ openspec archive "<name>"
 
 OpenSpec delegates each phase to the package's logical agents:
 
-1. **Grill** → `product-manager` → `grill-with-docs`
+1. **Grill** (interactive user interview) → `product-manager` → `grill-with-docs`
 2. **Proposal** → `engineer`
 3. **Specs** → `engineer` → `codebase-design`
 4. **Design** → `engineer` → `codebase-design`
@@ -116,6 +125,15 @@ OpenSpec delegates each phase to the package's logical agents:
 7. **Independent review** → fresh `code-reviewer` → `code-review`
 
 If already running as the agent requested by the schema, perform the phase directly rather than spawning a duplicate copy of the same agent.
+
+### The Grill is interactive
+
+The Grill is the one phase that is a live conversation with the user, not an autonomous artifact-writing task. `grill-with-docs` interviews the user one question at a time and waits for each answer, so the `product-manager` must be reached through an interactive channel:
+
+- If you are already the `product-manager`, conduct the interview directly with the user.
+- Otherwise delegate to the `product-manager` through the tool's interactive mechanism — a session or subagent whose questions surface to the user and whose answers route back (for example, a dedicated `product-manager` session the user drives).
+
+A non-interactive, one-shot, or autonomous Grill — where the agent answers its own questions or runs with no live user channel — is never valid, even if it produces a plausible `grill.md`. If the active tool cannot give the `product-manager` an interactive channel to the user, STOP: tell the user, have them run the `product-manager` interactively until `grill.md` is written, then resume from `grill.md` on disk. Never fabricate the Grill to keep moving.
 
 ## Step 1 — Start a change
 
@@ -187,5 +205,6 @@ After every scenario is complete, validation is green, independent review approv
 - User approval controls every transition.
 - Never fast-forward.
 - Never implement during planning.
+- The Grill is an interactive user interview; never run it non-interactively or answer its questions on the user's behalf.
 - Never fake green.
 - Never skip the independent reviewer or override its configured model.
