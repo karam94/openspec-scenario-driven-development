@@ -21,6 +21,16 @@ artifacts:
       CONTEXT.md and ADRs when decisions crystallise.
     template: grill.md
     instruction: |
+      AGENT — required delegation:
+      Delegate this artifact to the `product-manager` agent using the current
+      tool's native subagent mechanism. If already running as `product-manager`,
+      continue directly instead of creating another Product Manager.
+
+      If the `product-manager` agent is unavailable:
+      - STOP immediately.
+      - Tell the user that the package's Product Manager adapter is missing.
+      - Do NOT perform the Grill phase with the current agent as a fallback.
+
       PREREQUISITE — required skill availability:
       Before invoking, verify that the exact skill `grill-with-docs` 
       is available in the current skills list.
@@ -28,10 +38,10 @@ artifacts:
       If `grill-with-docs` is missing:
       - STOP immediately.
       - Tell the user that the `grill-with-docs` skill is required.
-      - Tell the user to install or enable the Matt Pocock skills plugin.
+      - Tell the user that the package's `grill-with-docs` skill is missing.
       - Do NOT continue with a manual or best-effort fallback.
 
-      Invoke the `grill-with-docs` skill using the Skill tool.
+      Invoke the `grill-with-docs` skill using the current tool's skill mechanism.
 
       Output rules to follow:
       - Write the full output from `grill-with-docs` to grill.md as raw capture.
@@ -50,6 +60,13 @@ artifacts:
       why the change is required.
     template: proposal.md
     instruction: >
+      AGENT — required delegation:
+      Delegate this artifact to the `engineer` agent using the current tool's
+      native subagent mechanism. If already running as `engineer`, continue
+      directly instead of creating another Engineer. If the `engineer` agent is
+      unavailable, STOP and tell the user that the package's Engineer adapter is
+      missing; do not produce the artifact with a fallback agent.
+
       Create the proposal document that establishes WHY this change is needed
       based on the shared understanding & document of the grill output.
 
@@ -86,6 +103,13 @@ artifacts:
       system behaviour.
     template: spec.md
     instruction: |
+      AGENT — required delegation:
+      Delegate this artifact to the `engineer` agent using the current tool's
+      native subagent mechanism. If already running as `engineer`, continue
+      directly instead of creating another Engineer. If the `engineer` agent is
+      unavailable, STOP and tell the user that the package's Engineer adapter is
+      missing; do not produce the artifact with a fallback agent.
+
       PREREQUISITE — exploration:
       1. Explore the repo to understand the current state of the 
         codebase, if you haven't already. Use the project's domain 
@@ -222,6 +246,13 @@ artifacts:
     description: Technical design document with implementation details
     template: design.md
     instruction: |
+      AGENT — required delegation:
+      Delegate this artifact to the `engineer` agent using the current tool's
+      native subagent mechanism. If already running as `engineer`, continue
+      directly instead of creating another Engineer. If the `engineer` agent is
+      unavailable, STOP and tell the user that the package's Engineer adapter is
+      missing; do not produce the artifact with a fallback agent.
+
       Create the design document that explains HOW to implement the change.
 
       When to include design.md (create only if any apply):
@@ -253,6 +284,13 @@ artifacts:
       trackable tasks using tracer-bullet vertical slices.
     template: tasks.md
     instruction: >
+      AGENT — required delegation:
+      Delegate this artifact to the `engineer` agent using the current tool's
+      native subagent mechanism. If already running as `engineer`, continue
+      directly instead of creating another Engineer. If the `engineer` agent is
+      unavailable, STOP and tell the user that the package's Engineer adapter is
+      missing; do not produce the artifact with a fallback agent.
+
       Break a plan into independent implementable tasks using 
       vertical slices (tracer bullets).
 
@@ -335,6 +373,18 @@ apply:
     - tasks
   tracks: tasks.md
   instruction: |
+    AGENT — required delegation:
+      Delegate Apply to the `engineer` agent using the current tool's native
+      subagent mechanism. If already running as `engineer`, continue directly
+      instead of creating another Engineer. If the `engineer` agent is unavailable,
+      STOP and tell the user that the package's Engineer adapter is missing.
+
+      At the end of the assigned Apply scope, the Engineer MUST create a fresh
+      `code-reviewer` subagent, invoke it by agent identity, and preserve the model
+      configured by the reviewer's tool adapter. The Engineer must not review its
+      own work or let the reviewer inherit the Engineer model. Apply is complete
+      only after the reviewer returns `APPROVE`.
+
     PREREQUISITE — required skill availability:
       Before invoking, verify that the exact skills `atdd` & `codebase-design` 
       are available in the current skills list.
@@ -342,12 +392,12 @@ apply:
       If either are missing:
       - STOP immediately.
       - Tell the user which skill is required & missing.
-      - Tell the user to install or enable the Matt Pocock skills plugin.
+      - Tell the user that the package's required skill is missing.
       - Do NOT continue with a manual or best-effort fallback.
     
     Create a new git branch for the change.
     Read the context files.
-    Invoke the `atdd` skill using the Skill tool & work through each scenario one by one, 
+    Invoke the `atdd` skill using the current tool's skill mechanism & work through each scenario one by one, 
     mark tasks complete as you go.
     Stop after every completed scenario & ask the user to review before continuing.
     Pause if you hit blockers or need clarification.

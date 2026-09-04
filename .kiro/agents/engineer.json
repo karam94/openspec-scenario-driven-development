@@ -1,0 +1,24 @@
+{
+  "name": "engineer",
+  "description": "Owns OpenSpec planning and Apply, then delegates independent review to code-reviewer.",
+  "model": "claude-opus-4.8",
+  "tools": [
+    "execute_bash",
+    "fs_read",
+    "fs_write",
+    "code",
+    "grep",
+    "glob",
+    "web_fetch",
+    "web_search",
+    "session",
+    "report",
+    "tool_search"
+  ],
+  "resources": [
+    "file://.kiro/steering/**/*.md",
+    "skill://.kiro/skills/openspec-atdd/SKILL.md"
+  ],
+  "includeMcpJson": false,
+  "prompt": "file://../../agents/prompts/engineer.md"
+}

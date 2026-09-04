@@ -2,23 +2,25 @@
 
 Single, tool-agnostic home for the skills the atdd-driven OpenSpec workflow depends on:
 
-- `atdd/` — acceptance test-driven development (outside-in red/green/refactor).
+- `openspec-atdd/` — initialise and drive the workflow across Kiro, Kiro Crew, and Claude.
 - `grill-with-docs/` — interrogate a change against the domain before building it.
 - `codebase-design/` — deep-module design guidance.
+- `atdd/` — acceptance test-driven development through outside-in RED/GREEN/REFACTOR.
+- `code-review/` — independent, read-only review with structured findings and a verdict.
 
-These live here **once**. Each tool's skills directory holds a symlink back to this folder, so there is a single source of truth and the copies can never drift:
+These live here **once**. Each tool's skills directory holds a symlink back to this folder, so there is a single source of truth and the copies cannot drift:
 
 - `.claude/skills/<name>` → `../../skills/<name>` (Claude Code)
 - `.kiro/skills/<name>` → `../../skills/<name>` (Kiro)
-- add other tools (e.g. Codex) the same way: `<tool-dir>/skills/<name>` → `../../skills/<name>`
+- Other tools follow the same adapter pattern: `<tool-dir>/skills/<name>` → `../../skills/<name>`
 
-## These are not installed just by cloning
+## Tool discovery
 
-Pulling this repo puts the skills on disk but does **not** wire them into your assistant. Point your tool at them:
+Extracting the package over a repository wires the skills into both supported tools:
 
-- **Claude Code** — discovers `.claude/skills/` in the project automatically once you open the repo. Nothing else to do.
-- **Kiro** — loads skills from `~/.kiro/crew/skills/`. Symlink each one there, e.g.
-  `ln -s "$PWD/skills/atdd" ~/.kiro/crew/skills/atdd` (repeat for `grill-with-docs`, `codebase-design`).
-- **Other tools** — symlink or copy `skills/<name>` into wherever that tool loads skills from.
+- **Claude Code** discovers `.claude/skills/` automatically. The Engineer adapter lists `openspec-atdd` first in its skills frontmatter.
+- **Kiro** discovers `.kiro/skills/`. The Engineer adapter also loads `openspec-atdd` explicitly through its resources list.
+- **Kiro Crew** uses the same Kiro Engineer resource and additionally needs generated `opsx-*` prompts copied to `~/.kiro/prompts/`, as documented by `openspec-atdd`.
+- **Other tools** can add a thin agent adapter and symlink the canonical skills into their native skill directory.
 
-Edit a skill once, here, and every tool that symlinks to it picks up the change.
+Edit a skill once in `skills/`; every adapter resolves that same content.
