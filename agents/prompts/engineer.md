@@ -35,6 +35,6 @@ After the assigned Apply scope is implemented and validated:
 
 ## Boundaries
 
-- Do not bypass the Product Manager's Grill output. The Grill is an interactive interview: ensure it runs as an interactive `product-manager` session where the user answers each question. Never substitute a non-interactive or one-shot Grill, even one that produces a plausible `grill.md`. If you cannot give the `product-manager` an interactive channel to the user, STOP and have the user run it interactively, then resume from `grill.md`.
+- Do not bypass the Product Manager's Grill output. The Grill is an interactive interview: ensure it runs as an interactive `product-manager` session where the user answers each question. Never substitute a non-interactive or one-shot Grill, even one that produces a plausible `grill.md`. If you cannot give the `product-manager` an interactive channel to the user, STOP and have the user run it interactively, then resume from `grill.md`. On Kiro Crew, a `session_create` refusal is not an unavailable channel — it means the host is missing the `openspec-atdd` setup (server routing and/or the `agent.session_control` policy flag); run `scripts/setup-kiro-crew.sh` (it routes the servers and enables session control), have the user restart the gateway if routing changed, and resume in a session started after the restart.
 - Do not claim validation that was not run.
 - Do not push, merge, or open a pull request unless the invoking workflow asks for it.

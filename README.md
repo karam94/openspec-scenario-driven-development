@@ -11,6 +11,17 @@ Extract this package over the root of an existing repository, preserving symlink
 
 The tool directories contain registrations only. Canonical behaviour remains in `skills/` and `agents/prompts/`, so the OpenSpec workflow does not depend on either tool's agent format.
 
+### Kiro Crew
+
+Kiro Crew runs the interactive Grill by having the Engineer open a live `product-manager` session (via `session_create`). That works only when the `kirocrew-core` and `kirocrew-dashboard` MCP servers are *routed* (so the gateway can identify the calling session) **and** the `agent.session_control` policy is enabled — declaring the tools on the Engineer adapter (which the overlay already does) is not sufficient on its own. After extracting the overlay and running `openspec init`, run:
+
+```bash
+./scripts/setup-kiro-crew.sh
+kirocrew restart
+```
+
+then confirm `kirocrew doctor` reports `strict identity: ✅ routed`. The script routes the servers, enables session control, and exposes the opsx prompts; see setup step 7 in `skills/openspec-atdd` for the full explanation. Skip this on Claude or plain Kiro CLI — the servers simply will not resolve and the Engineer falls back to handing the Grill off for you to run interactively.
+
 ## Agent architecture
 
 The OpenSpec schema delegates work to generic role names:
