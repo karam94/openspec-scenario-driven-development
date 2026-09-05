@@ -11,14 +11,47 @@
     "glob",
     "web_fetch",
     "web_search",
+    "introspect",
     "session",
     "report",
-    "tool_search"
+    "tool_search",
+    "@kirocrew-core",
+    "@kirocrew-dashboard/session_create",
+    "@kirocrew-dashboard/session_send",
+    "@kirocrew-dashboard/session_read_message",
+    "@kirocrew-dashboard/session_stop"
+  ],
+  "allowedTools": [
+    "web_fetch",
+    "web_search",
+    "introspect",
+    "session",
+    "report",
+    "tool_search",
+    "@kirocrew-core",
+    "@kirocrew-dashboard/session_create",
+    "@kirocrew-dashboard/session_send",
+    "@kirocrew-dashboard/session_read_message",
+    "@kirocrew-dashboard/session_stop"
   ],
   "resources": [
     "file://.kiro/steering/**/*.md",
     "skill://.kiro/skills/openspec-atdd/SKILL.md"
   ],
   "includeMcpJson": false,
-  "prompt": "file://./prompts/engineer.md"
+  "prompt": "file://./prompts/engineer.md",
+  "mcpServers": {
+    "kirocrew-core": {
+      "command": "kirocrew",
+      "args": [
+        "mcp-core"
+      ]
+    },
+    "kirocrew-dashboard": {
+      "command": "kirocrew",
+      "args": [
+        "mcp-dashboard"
+      ]
+    }
+  }
 }
