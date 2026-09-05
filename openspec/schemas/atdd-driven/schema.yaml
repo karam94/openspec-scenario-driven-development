@@ -21,6 +21,19 @@ artifacts:
       CONTEXT.md and ADRs when decisions crystallise.
     template: grill.md
     instruction: |
+      REFACTOR MODE (behaviour-preserving refactor):
+      If this change is a behaviour-preserving refactor whose target area has
+      already been identified and fed in — with no change to observable
+      behaviour — the interactive Grill is NOT required. Do not run an
+      interview. Write a one-line stub to grill.md recording the identified
+      refactor area and the classification line
+      `Change type: REFACTOR (behaviour-preserving)`, then continue.
+      TRIPWIRE: if any change to observable behaviour, a new seam, or a genuine
+      design decision is in scope, this is NOT a refactor — run the full
+      interactive Grill below instead.
+      For all other (behaviour-changing) work, follow the standard Grill
+      instruction below.
+
       AGENT — required delegation:
       Delegate this artifact to the `product-manager` agent using the current
       tool's native subagent mechanism. If already running as `product-manager`,
@@ -82,6 +95,15 @@ artifacts:
       why the change is required.
     template: proposal.md
     instruction: >
+      REFACTOR MODE: If grill.md classifies this as a behaviour-preserving
+      refactor, keep the proposal minimal — Why is a single sentence; What
+      Changes is structural bullets each tagged (no behaviour change); there are
+      no New Capabilities (reference the existing capability being refactored and
+      leave Modified empty unless a spec's requirement text genuinely changes);
+      Impact lists the modules/files touched. Do not interview the user or
+      explore new behaviour. Otherwise, follow the standard instruction below.
+
+
       AGENT — required delegation:
       Delegate this artifact to the `engineer` agent using the current tool's
       native subagent mechanism. If already running as `engineer`, continue
@@ -125,6 +147,17 @@ artifacts:
       system behaviour.
     template: spec.md
     instruction: |
+      REFACTOR MODE: If grill.md classifies this as a behaviour-preserving
+      refactor, do NOT author new behaviour. Identify every existing behaviour
+      within the refactor's scope and, through the highest available seam,
+      confirm each is already covered by a behavioural test (cite it). For any
+      gaps, specify new behavioural tests — outside-in, GIVEN/WHEN/THEN, through
+      the seam — that pin the existing behaviour. Scenarios describe existing
+      behaviour only; no new capability is introduced. TRIPWIRE: if pinning
+      existing behaviour exposes a defect you would change, that is a behaviour
+      change — stop and reclassify. Otherwise, follow the standard instruction
+      below.
+
       AGENT — required delegation:
       Delegate this artifact to the `engineer` agent using the current tool's
       native subagent mechanism. If already running as `engineer`, continue
@@ -268,6 +301,14 @@ artifacts:
     description: Technical design document with implementation details
     template: design.md
     instruction: |
+      REFACTOR MODE: If grill.md classifies this as a behaviour-preserving
+      refactor, a design document is not applicable — write a one-line stub to
+      design.md: `Not applicable — behaviour-preserving refactor; target shape
+      captured in tasks.md`. Needing real design decisions (a new abstraction, a
+      new seam, or a trade-off between alternatives) means this is not a pure
+      refactor — stop and reclassify. Otherwise, follow the standard instruction
+      below.
+
       AGENT — required delegation:
       Delegate this artifact to the `engineer` agent using the current tool's
       native subagent mechanism. If already running as `engineer`, continue
@@ -306,6 +347,15 @@ artifacts:
       trackable tasks using tracer-bullet vertical slices.
     template: tasks.md
     instruction: >
+      REFACTOR MODE: If grill.md classifies this as a behaviour-preserving
+      refactor, structure tasks around test coverage and the target shape rather
+      than new scenarios. For each behavioural-test gap identified in specs, add
+      a RED/GREEN slice that introduces the missing behavioural test through its
+      seam. Then add a single REFACTOR slice that performs the structural change
+      while every test stays green. Capture the agreed target shape as the
+      concrete task steps. Otherwise, follow the standard instruction below.
+
+
       AGENT — required delegation:
       Delegate this artifact to the `engineer` agent using the current tool's
       native subagent mechanism. If already running as `engineer`, continue
@@ -395,6 +445,15 @@ apply:
     - tasks
   tracks: tasks.md
   instruction: |
+    REFACTOR MODE: If grill.md classifies this as a behaviour-preserving
+    refactor, apply RED/GREEN/REFACTOR as normal — gap-filling behavioural tests
+    are written test-first (RED) and brought GREEN, then the structural change is
+    performed in REFACTOR with all tests staying green. No existing behavioural
+    test's expected outcome may be weakened, changed, or deleted to force a pass;
+    doing so means behaviour changed, so stop and reclassify. The independent
+    reviewer gate below is unchanged. Otherwise, follow the standard instruction
+    below.
+
     AGENT — required delegation:
       Delegate Apply to the `engineer` agent using the current tool's native
       subagent mechanism. If already running as `engineer`, continue directly
