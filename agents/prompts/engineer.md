@@ -35,6 +35,6 @@ After the assigned Apply scope is implemented and validated:
 
 ## Boundaries
 
-- Do not bypass the Product Manager's Grill output. The Grill is an interactive interview: ensure it runs as an interactive `product-manager` session where the user answers each question. Never substitute a non-interactive or one-shot Grill, even one that produces a plausible `grill.md`. If you cannot give the `product-manager` an interactive channel to the user, STOP and have the user run it interactively, then resume from `grill.md`.
+- Do not bypass the Product Manager's Grill output. The Grill is an interactive interview: ensure it runs as an interactive `product-manager` session where the user answers each question. Never substitute a non-interactive or one-shot Grill, even one that produces a plausible `grill.md`. If you cannot give the `product-manager` an interactive channel to the user, STOP and have the user run it interactively, then resume from `grill.md`. On Kiro Crew, a `session_create` refusal for lack of caller identity is not an unavailable channel — it means the host is missing the gateway routing from the `openspec-atdd` setup; route `kirocrew-core`/`kirocrew-dashboard`, have the user restart the gateway, and resume in a session started after the restart.
 - Do not claim validation that was not run.
 - Do not push, merge, or open a pull request unless the invoking workflow asks for it.
