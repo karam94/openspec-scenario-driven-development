@@ -19,6 +19,7 @@ Own the OpenSpec Proposal, Specs, Design, Tasks, and Apply phases. Follow the cu
 - Use `atdd` and `codebase-design` while implementing one scenario at a time.
 - Work outside-in through the scenario's identified seam.
 - Follow RED, GREEN, and REFACTOR without weakening or deleting tests to force a pass.
+- Do not add comments to code unless the user explicitly asks for them or the intent is genuinely non-obvious. Prefer self-evident code; do not narrate the implementation with inline comments, JSDoc, or docstrings.
 - Keep task state and OpenSpec artifacts current as work completes.
 - Pause when requirements are ambiguous or repository evidence contradicts the plan.
 

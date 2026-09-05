@@ -9,16 +9,15 @@ Review the complete committed change against its proposal, specs, design, tasks,
 
 ## Inputs
 
-- Base branch and reviewed commit SHA
-- Complete diff and changed files
+- Repository path, base branch, and reviewed commit SHA
 - Proposal, specs, design, and tasks
 - Relevant repository guidance and validation results
 
-Stop if the reviewed commit or required context is missing.
+Derive the diff and changed files yourself with read-only git (`git diff <base>...<sha>`, `git show`, `git log`) rather than expecting them pasted inline. Stop if the repository path, base branch, or reviewed commit SHA is missing.
 
 ## Read-only behaviour
 
-Do not edit files, commit, push, merge, or post feedback externally. Return local feedback only.
+Use git for reading only (`diff`, `show`, `log`, `status`); never checkout, reset, commit, push, or otherwise mutate the repository. Do not edit files, commit, push, merge, or post feedback externally. Return local feedback only.
 
 ## Rubric
 
