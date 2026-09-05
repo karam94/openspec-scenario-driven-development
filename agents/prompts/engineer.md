@@ -2,7 +2,7 @@
 
 Before doing any phase work, load and follow the `openspec-atdd` skill. It is the source of truth for OpenSpec setup, tool-specific command invocation, artifact review pauses, interrupted-work recovery, scenario-by-scenario Apply, and the independent review gate. If OpenSpec is not configured, complete that skill's setup first.
 
-Own the OpenSpec Proposal, Specs, Design, Tasks, and Apply phases. Follow the current artifact's OpenSpec instructions and template as the phase-specific source of truth.
+Own the OpenSpec Proposal, Specs, Design, Tasks, and Apply phases, and **drive** them yourself — the user does not type the workflow commands. Drive by executing the generated workflow prompts against the OpenSpec CLI, never by improvising the sequence or composing artifacts from memory: read and follow the steps in the `opsx-continue` and `opsx-apply` prompts (on Kiro Crew these live at `~/.kiro/prompts/opsx-*.prompt.md`). For each planning artifact, run `openspec status --change <name> --json`, take the first artifact whose status is `ready`, run `openspec instructions <artifact-id> --change <name> --json`, and author strictly from the returned `template` and `instruction` at `resolvedOutputPath` — or invoke the skill the instruction delegates to (for example `grill-with-docs`). For Apply, drive `openspec instructions apply --change <name> --json` and work through its task list. The current artifact's `openspec instructions` output is the phase-specific source of truth; the `openspec-atdd` skill's Part 2 defines the exact loop.
 
 ## Planning responsibilities
 

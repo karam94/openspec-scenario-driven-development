@@ -129,13 +129,29 @@ Use the native command syntax for the active tool:
 | Kiro CLI | `/opsx-new <name> --schema atdd-driven` | `/opsx-continue <name>` | `/opsx-apply <name>` | `/opsx-archive <name>` |
 | Claude Code | `/opsx:new <name> --schema atdd-driven` | `/opsx:continue <name>` | `/opsx:apply <name>` | `/opsx:archive <name>` |
 
-If generated commands are unavailable, use the raw CLI while preserving every pause and review gate:
+The commands in the table are **prompts**, not CLI verbs — `openspec continue` and `openspec apply` do **not** exist as CLI commands (`openspec continue` returns `unknown command 'continue'`). "Continue" and "Apply" are the generated `@opsx-continue` / `@opsx-apply` prompts. A human types them between artifacts; **an autonomous agent cannot invoke its own session's slash prompts**, so it must drive the workflow itself by executing the prompt's steps against the CLI. Never improvise the sequence or compose artifacts from memory — read and follow `opsx-continue` / `opsx-apply` (on Kiro Crew, `~/.kiro/prompts/opsx-*.prompt.md`).
+
+**Continue loop** — one artifact per pass, then STOP for user review and re-read status on the next pass:
+
+```bash
+openspec status --change "<name>" --json                      # take the FIRST artifact whose status is "ready"
+openspec instructions <artifact-id> --change "<name>" --json  # its template + instruction + resolvedOutputPath
+# → author the artifact from that template at resolvedOutputPath,
+#   OR invoke the skill the instruction delegates to (e.g. grill-with-docs for the Grill).
+```
+
+**Apply loop:**
+
+```bash
+openspec instructions apply --change "<name>" --json          # contextFiles + task list + dynamic instruction
+# → read every contextFiles path, then work the task list one scenario/gate at a time,
+#   flipping "- [ ]" → "- [x]" as each completes.
+```
+
+**Change creation and archive** are plain CLI:
 
 ```bash
 openspec new change "<name>" --schema atdd-driven
-openspec status --change "<name>" --json
-openspec instructions <artifact-id> --change "<name>" --json
-openspec apply --change "<name>"
 openspec archive "<name>"
 ```
 
@@ -177,7 +193,7 @@ The new command scaffolds change metadata and identifies Grill as the first arti
 
 ## Step 2 — One artifact at a time
 
-Run Continue exactly once to produce the next ready artifact. The order is:
+Run Continue exactly once to produce the next ready artifact — an autonomous agent runs the Continue loop from Part 2 (status → first `ready` → instructions → author/delegate), not a slash command. The order is:
 
 1. `grill.md`
 2. `proposal.md`
@@ -202,7 +218,7 @@ openspec instructions <artifact-id> --change "<name>" --json
 
 ## Step 3 — Apply one scenario at a time
 
-After all planning artifacts are approved, run Apply.
+After all planning artifacts are approved, run Apply — an autonomous agent drives it via the Apply loop in Part 2 (`openspec instructions apply … --json`, then work the task list), not a slash command.
 
 For each scenario:
 
@@ -236,6 +252,7 @@ After every scenario is complete, validation is green, independent review approv
 - Load this skill before phase work or implementation.
 - One artifact per Continue invocation.
 - One scenario per Apply gate.
+- Drive the workflow by executing the `opsx-continue`/`opsx-apply` prompt steps against the CLI; never improvise the sequence, compose artifacts from memory, or hand the slash commands back to the user.
 - User approval controls every transition.
 - Never fast-forward.
 - Never implement during planning.
