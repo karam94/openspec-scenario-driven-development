@@ -7,8 +7,9 @@
 # tool authorises on the calling session's identity, which the gateway injects
 # only for ROUTED MCP servers. The Engineer adapter already DECLARES the
 # kirocrew-core / kirocrew-dashboard servers (Layer 1); this script performs
-# Layer 2 — routing them so the gateway can identify the caller — and exposes
-# the generated opsx prompts to Kiro Crew's global prompt directory.
+# Layer 2 — routing them so the gateway can identify the caller — and Layer 3 —
+# enabling the agent.session_control policy that lets agents drive sessions — then
+# exposes the generated opsx prompts to Kiro Crew's global prompt directory.
 #
 # Safe to re-run: routing is merged into any existing stub_servers, never
 # overwritten. On a host without Kiro Crew it is a no-op. Run it once after
@@ -41,6 +42,10 @@ print(json.dumps(list(dict.fromkeys([*current, *required]))))
 ')"
 kirocrew config set "mcp_gateway.stub_servers" "$merged"
 
+echo "==> Enabling session control (agent.session_control)"
+# Security switch (default false, read live): lets agents create/drive sessions; the interactive Grill needs it.
+kirocrew config set agent.session_control true
+
 # Expose the generated Kiro prompts to Kiro Crew's global prompt directory.
 prompts_glob="$REPO_ROOT/.kiro/prompts/opsx-"*.prompt.md
 if compgen -G "$prompts_glob" >/dev/null 2>&1; then
@@ -53,7 +58,9 @@ fi
 
 cat <<'EOF'
 
-Done. One manual step remains — restart the gateway so the routing loads:
+Done — session control is enabled (read live) and the servers are routed. One
+manual step remains: restart the gateway so the routing loads (session control
+needs no restart):
 
     kirocrew restart
 

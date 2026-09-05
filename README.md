@@ -13,14 +13,14 @@ The tool directories contain registrations only. Canonical behaviour remains in 
 
 ### Kiro Crew
 
-Kiro Crew runs the interactive Grill by having the Engineer open a live `product-manager` session (via `session_create`). That works only when the `kirocrew-core` and `kirocrew-dashboard` MCP servers are *routed*, so the gateway can identify the calling session — declaring them on the Engineer adapter (which the overlay already does) is not sufficient on its own. After extracting the overlay and running `openspec init`, run:
+Kiro Crew runs the interactive Grill by having the Engineer open a live `product-manager` session (via `session_create`). That works only when the `kirocrew-core` and `kirocrew-dashboard` MCP servers are *routed* (so the gateway can identify the calling session) **and** the `agent.session_control` policy is enabled — declaring the tools on the Engineer adapter (which the overlay already does) is not sufficient on its own. After extracting the overlay and running `openspec init`, run:
 
 ```bash
 ./scripts/setup-kiro-crew.sh
 kirocrew restart
 ```
 
-then confirm `kirocrew doctor` reports `strict identity: ✅ routed`. See setup step 7 in `skills/openspec-atdd` for the full explanation. Skip this on Claude or plain Kiro CLI — the servers simply will not resolve and the Engineer falls back to handing the Grill off for you to run interactively.
+then confirm `kirocrew doctor` reports `strict identity: ✅ routed`. The script routes the servers, enables session control, and exposes the opsx prompts; see setup step 7 in `skills/openspec-atdd` for the full explanation. Skip this on Claude or plain Kiro CLI — the servers simply will not resolve and the Engineer falls back to handing the Grill off for you to run interactively.
 
 ## Agent architecture
 

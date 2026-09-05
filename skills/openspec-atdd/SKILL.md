@@ -76,7 +76,7 @@ Skip this step when Kiro Crew is not being used.
 
 ### 7. Kiro Crew — wire the interactive Grill
 
-The Grill is an interactive interview (see "The Grill is interactive"). On Kiro Crew the Engineer stands up a live `product-manager` session for it with the `session_create` tool. That needs **two** layers, and only the first ships in the overlay — the second is a one-time host step.
+The Grill is an interactive interview (see "The Grill is interactive"). On Kiro Crew the Engineer stands up a live `product-manager` session for it with the `session_create` tool. That needs **three** layers, and only the first ships in the overlay — the other two are one-time host steps.
 
 **Layer 1 — adapter tools (pre-shipped, no action).** The Kiro Engineer adapter (`.kiro/agents/engineer.json`) already declares the session tools:
 
@@ -99,6 +99,14 @@ kirocrew restart
 
 Confirm with `kirocrew doctor`: the **Data Home** section must report `strict identity: ✅ routed`. Two gotchas: routing takes effect only after the restart, and identity is bound per session — an Engineer session started *before* the restart stays unidentified, so begin (or resume) the workflow in a session started *after* it.
 
+**Layer 3 — session-control policy (host step, run once).** Routing earns the caller an identity; the `agent.session_control` flag then decides whether the session-control tools are allowed at all. It defaults to `false`, so even with routing fixed `session_create` is refused — this time with `session control is disabled in config (agent.session_control)`. Enable it:
+
+```bash
+kirocrew config set agent.session_control true
+```
+
+Unlike routing, this is read live — no restart needed. `scripts/setup-kiro-crew.sh` sets it for you. Treat it as a security switch: it lets agents create and drive other sessions, so enable it deliberately.
+
 On a host without KiroCrew (plain Kiro CLI, Claude, another OS) the `kirocrew` command simply will not resolve, the MCP servers will not start, and the Engineer falls back to the schema's STOP-and-hand-off behaviour rather than running a non-interactive Grill — no edit required.
 
 ### 8. Confirm setup
@@ -109,7 +117,7 @@ Confirm that:
 - `openspec config list` reports the custom profile and includes `new` and `continue`.
 - `openspec update` recognises both Kiro and Claude.
 - all canonical skills, agent adapters, prompt references, and symlink targets exist.
-- on Kiro Crew only: `kirocrew doctor` reports `strict identity: ✅ routed` (step 7, layer 2).
+- on Kiro Crew only: `kirocrew doctor` reports `strict identity: ✅ routed` (step 7, layer 2), and `kirocrew config get agent.session_control` returns `true` (step 7, layer 3).
 
 ## Part 2 — Invoke the workflow
 
@@ -154,7 +162,12 @@ The Grill is the one phase that is a live conversation with the user, not an aut
 
 A non-interactive, one-shot, or autonomous Grill — where the agent answers its own questions or runs with no live user channel — is never valid, even if it produces a plausible `grill.md`. If the active tool cannot give the `product-manager` an interactive channel to the user, STOP: tell the user, have them run the `product-manager` interactively until `grill.md` is written, then resume from `grill.md` on disk. Never fabricate the Grill to keep moving.
 
-**Kiro Crew preflight.** Before creating the `product-manager` session, confirm the session tools can actually be called. If `session_create` is refused for lack of a verifiable caller identity (or `kirocrew doctor` shows `kirocrew-core` / `kirocrew-dashboard` unrouted), the host is missing Layer 2 of setup step 7 — this is a fixable routing gap, not an unavailable channel. Route the servers (`./scripts/setup-kiro-crew.sh`, or `kirocrew config set mcp_gateway.stub_servers '["kirocrew-core","kirocrew-dashboard"]'`), have the user run `kirocrew restart`, then resume the workflow in a session started after the restart. Do not degrade to a non-interactive Grill because identity was unrouted.
+**Kiro Crew preflight.** Before creating the `product-manager` session, confirm the session tools can actually be called. A `session_create` refusal here is a fixable host-setup gap from step 7, not an unavailable channel, and the message names the missing layer:
+
+- `only a gateway-issued key counts` (or `kirocrew doctor` shows the servers unrouted) → **Layer 2**: the servers are not routed. Fixed by routing them + a `kirocrew restart`.
+- `session control is disabled in config (agent.session_control)` → **Layer 3**: the policy flag is off. Fixed by `kirocrew config set agent.session_control true` (read live, no restart).
+
+Either way, `./scripts/setup-kiro-crew.sh` does both; have the user run `kirocrew restart` if routing changed, then resume the workflow in a session started after the restart. Never degrade to a non-interactive Grill because setup was incomplete.
 
 ## Step 1 — Start a change
 
