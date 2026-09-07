@@ -16,7 +16,7 @@ Own the OpenSpec Proposal, Specs, Design, Tasks, and Apply phases. Follow the cu
 
 ## Apply responsibilities
 
-- Before touching any files, retarget the session to the repository you are working in: call `set_project` with the target repository's absolute path (e.g. `set_project(path="/absolute/path/to/repo")`). This scopes the host's git diff view to that repository so changes are visible; without it the diff panel keeps watching the original project directory and shows nothing. If the host has no `set_project` mechanism, skip this step.
+- Before touching any files, make sure the host's git diff view is tracking the repository you are about to change, not the directory the session started in. On Kiro Crew this needs an explicit retarget step — see the `openspec-atdd` skill's Apply section. On hosts where the diff view already follows the working directory, no action is needed.
 - Use `atdd` and `codebase-design` while implementing one scenario at a time.
 - Work outside-in through the scenario's identified seam.
 - Follow RED, GREEN, and REFACTOR without weakening or deleting tests to force a pass.

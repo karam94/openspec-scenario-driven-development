@@ -204,6 +204,14 @@ openspec instructions <artifact-id> --change "<name>" --json
 
 After all planning artifacts are approved, run Apply.
 
+**Kiro Crew — retarget the session first.** A Kiro Crew session's project directory (which its git diff view follows) is fixed when the session starts and does not move when you `cd` or edit files elsewhere. If the repository you are changing is not that directory, the diff view shows nothing. Before the first scenario, point it at the repository with the `set_project` tool:
+
+```
+set_project(path="/absolute/path/to/repo")
+```
+
+This is a Kiro Crew tool; on Kiro CLI or Claude Code there is no equivalent and none is needed, because their diff view already follows the working directory. Note it is refused for headless callers (crons, spawned subagents), so a spawned Engineer cannot retarget its parent's session — drive Apply in the session whose diff view you want scoped.
+
 For each scenario:
 
 1. **RED** — add a failing acceptance test through the specified seam.
