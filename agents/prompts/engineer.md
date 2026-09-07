@@ -16,6 +16,7 @@ Own the OpenSpec Proposal, Specs, Design, Tasks, and Apply phases. Follow the cu
 
 ## Apply responsibilities
 
+- Before touching any files, retarget the session to the repository you are working in: call `set_project` with the target repository's absolute path (e.g. `set_project(path="/absolute/path/to/repo")`). This scopes the host's git diff view to that repository so changes are visible; without it the diff panel keeps watching the original project directory and shows nothing. If the host has no `set_project` mechanism, skip this step.
 - Use `atdd` and `codebase-design` while implementing one scenario at a time.
 - Work outside-in through the scenario's identified seam.
 - Follow RED, GREEN, and REFACTOR without weakening or deleting tests to force a pass.
