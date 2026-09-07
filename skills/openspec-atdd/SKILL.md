@@ -1,125 +1,19 @@
 ---
 name: openspec-atdd
-description: Set up and drive the atdd-driven OpenSpec workflow in Kiro, Kiro Crew, or Claude, one artifact and one scenario at a time.
+description: Drive the atdd-driven OpenSpec workflow in Kiro, Kiro Crew, or Claude — one artifact and one scenario at a time, through Grill, planning, Apply, and the independent review gate. Use for every feature, bug, refactor, or cleanup. For one-time repository setup, use openspec-setup first.
 ---
 
 # OpenSpec ATDD
 
-Load this skill before any OpenSpec planning or implementation work. It is the source of truth for initialising OpenSpec, invoking workflow commands on each supported tool, pausing for user review, resuming interrupted work, and completing the independent review gate.
+Load this skill before any OpenSpec planning or implementation work. It is the source of truth for invoking workflow commands on each supported tool, pausing for user review, resuming interrupted work, and completing the independent review gate.
+
+This skill assumes the repository is already prepared. If OpenSpec is not configured — `openspec schemas` does not list `atdd-driven`, or `openspec config list` lacks the `new` / `continue` commands — run the `openspec-setup` skill first, then return here.
 
 ## When to use
 
-Use this skill for two jobs:
+Use this skill to drive every feature, bug, refactor, or cleanup through the `atdd-driven` schema. Never begin implementation before the planning artifacts are complete and approved.
 
-1. **Setup** — prepare a repository after this package has been extracted over it.
-2. **Workflow** — drive every feature, bug, refactor, or cleanup through the `atdd-driven` schema.
-
-Never begin implementation before the planning artifacts are complete and approved.
-
-## Part 1 — One-time setup
-
-### 1. Work on a feature branch
-
-Create a branch from the repository's default branch without discarding existing work. Never push directly to a protected branch.
-
-### 2. Verify the extracted package
-
-The repository must contain:
-
-- `openspec/schemas/atdd-driven/schema.yaml`
-- `skills/openspec-atdd/SKILL.md`
-- `skills/grill-with-docs/SKILL.md`
-- `skills/codebase-design/SKILL.md`
-- `skills/atdd/SKILL.md`
-- `skills/code-review/SKILL.md`
-- the corresponding `.kiro/skills/` and `.claude/skills/` links
-- the `product-manager`, `engineer`, and `code-reviewer` adapters
-
-If any are missing, stop and report that the package overlay is incomplete. Do not improvise replacements.
-
-### 3. Register Kiro and Claude with OpenSpec
-
-Run this even when an `openspec/` directory already exists; the directory does not prove either tool is registered.
-
-```bash
-openspec init --tools kiro,claude --profile custom --no-copilot-cloud
-```
-
-This generates each tool's native workflow commands while leaving the package's agent and skill adapters in place.
-
-### 4. Enable the expanded workflow
-
-The `new` and `continue` commands require the custom profile.
-
-```bash
-openspec config set profile custom
-openspec config set workflows '["propose","explore","apply","update","sync","archive","new","continue","ff","verify","bulk-archive","onboard"]'
-openspec update
-```
-
-The workflows value must be a JSON array.
-
-### 5. Leave the default schema unchanged
-
-Do not make `atdd-driven` the project default. Pass `--schema atdd-driven` when creating each change; OpenSpec persists that choice in the change metadata.
-
-### 6. Kiro Crew prompt exposure
-
-Kiro and Claude use project-local generated commands. Kiro Crew additionally requires the generated Kiro prompts in its global prompt directory:
-
-```bash
-mkdir -p "$HOME/.kiro/prompts"
-cp -f .kiro/prompts/opsx-*.prompt.md "$HOME/.kiro/prompts/"
-```
-
-Skip this step when Kiro Crew is not being used.
-
-### 7. Kiro Crew — wire the interactive Grill
-
-The Grill is an interactive interview (see "The Grill is interactive"). On Kiro Crew the Engineer stands up a live `product-manager` session for it with the `session_create` tool. That needs **three** layers, and only the first ships in the overlay — the other two are one-time host steps.
-
-**Layer 1 — adapter tools (pre-shipped, no action).** The Kiro Engineer adapter (`.kiro/agents/engineer.json`) already declares the session tools:
-
-- `@kirocrew-core` and the four `@kirocrew-dashboard` session tools (`session_create` / `session_send` / `session_read_message` / `session_stop`) are declared in the adapter's `tools` and `allowedTools` — the dashboard entries are listed individually rather than as a server wildcard, so the Engineer can reach only those session tools. `@kirocrew-core` provides `ask_question` (and the `spawn_run` the Engineer already uses for the independent review gate).
-- Both servers are declared under `mcpServers` as `kirocrew mcp-core` / `kirocrew mcp-dashboard`, resolved from `PATH` so the config stays host-agnostic (no absolute paths). This assumes the `kirocrew` launcher is on `PATH`, which is the case on a KiroCrew install.
-
-**Layer 2 — gateway identity routing (host step, run once).** Declaring the tools is not enough. `session_create` and the other session-control tools authorise on the *caller's* verified identity, which the gateway injects only for **routed** servers. On the kiro backend the session's runtime carries no session key of its own, so an unrouted server leaves the Engineer with no identity and the gateway refuses the call ("only a gateway-issued key counts") — even though the tool is present in `allowedTools`. Route both servers and restart the gateway:
-
-```bash
-./scripts/setup-kiro-crew.sh   # routes the servers + exposes the opsx prompts (idempotent)
-kirocrew restart               # load the new routing — the script reminds you
-```
-
-or manually:
-
-```bash
-kirocrew config set mcp_gateway.stub_servers '["kirocrew-core","kirocrew-dashboard"]'
-kirocrew restart
-```
-
-Confirm with `kirocrew doctor`: the **Data Home** section must report `strict identity: ✅ routed`. Two gotchas: routing takes effect only after the restart, and identity is bound per session — an Engineer session started *before* the restart stays unidentified, so begin (or resume) the workflow in a session started *after* it.
-
-**Layer 3 — session-control policy (host step, run once).** Routing earns the caller an identity; the `agent.session_control` flag then decides whether the session-control tools are allowed at all. It defaults to `false`, so even with routing fixed `session_create` is refused — this time with `session control is disabled in config (agent.session_control)`. Enable it:
-
-```bash
-kirocrew config set agent.session_control true
-```
-
-Unlike routing, this is read live — no restart needed. `scripts/setup-kiro-crew.sh` sets it for you. Treat it as a security switch: it lets agents create and drive other sessions, so enable it deliberately.
-
-On a host without KiroCrew (plain Kiro CLI, Claude, another OS) the `kirocrew` command simply will not resolve, the MCP servers will not start, and the Engineer falls back to the schema's STOP-and-hand-off behaviour rather than running a non-interactive Grill — no edit required.
-
-### 8. Confirm setup
-
-Confirm that:
-
-- `openspec schemas` lists `atdd-driven (project)`.
-- `openspec config list` reports the custom profile and includes `new` and `continue`.
-- `openspec update` recognises both Kiro and Claude.
-- all canonical skills, agent adapters, prompt references, and symlink targets exist.
-- on Kiro Crew only: `kirocrew doctor` reports `strict identity: ✅ routed` (step 7, layer 2), and `kirocrew config get agent.session_control` returns `true` (step 7, layer 3).
-
-## Part 2 — Invoke the workflow
+## Invoke the workflow
 
 Use the native command syntax for the active tool:
 
@@ -162,10 +56,10 @@ The Grill is the one phase that is a live conversation with the user, not an aut
 
 A non-interactive, one-shot, or autonomous Grill — where the agent answers its own questions or runs with no live user channel — is never valid, even if it produces a plausible `grill.md`. If the active tool cannot give the `product-manager` an interactive channel to the user, STOP: tell the user, have them run the `product-manager` interactively until `grill.md` is written, then resume from `grill.md` on disk. Never fabricate the Grill to keep moving.
 
-**Kiro Crew preflight.** Before creating the `product-manager` session, confirm the session tools can actually be called. A `session_create` refusal here is a fixable host-setup gap from step 7, not an unavailable channel, and the message names the missing layer:
+**Kiro Crew preflight.** Before creating the `product-manager` session, confirm the session tools can actually be called. A `session_create` refusal here is a fixable host-setup gap, not an unavailable channel — the `openspec-setup` skill's `reference/kiro-crew-grill.md` explains each layer and how to read the refusal message. In short:
 
-- `only a gateway-issued key counts` (or `kirocrew doctor` shows the servers unrouted) → **Layer 2**: the servers are not routed. Fixed by routing them + a `kirocrew restart`.
-- `session control is disabled in config (agent.session_control)` → **Layer 3**: the policy flag is off. Fixed by `kirocrew config set agent.session_control true` (read live, no restart).
+- `only a gateway-issued key counts` (or `kirocrew doctor` shows the servers unrouted) → the servers are not routed. Fixed by routing them + a `kirocrew restart`.
+- `session control is disabled in config (agent.session_control)` → the policy flag is off. Fixed by `kirocrew config set agent.session_control true` (read live, no restart).
 
 Either way, `./scripts/setup-kiro-crew.sh` does both; have the user run `kirocrew restart` if routing changed, then resume the workflow in a session started after the restart. Never degrade to a non-interactive Grill because setup was incomplete.
 

@@ -2,7 +2,8 @@
 
 Single, tool-agnostic home for the skills the atdd-driven OpenSpec workflow depends on:
 
-- `openspec-atdd/` — initialise and drive the workflow across Kiro, Kiro Crew, and Claude.
+- `openspec-setup/` — one-time preparation of a repository for the workflow (register OpenSpec, enable the expanded profile, wire the host adapters).
+- `openspec-atdd/` — drive the workflow across Kiro, Kiro Crew, and Claude, one artifact and one scenario at a time.
 - `grill-with-docs/` — interrogate a change against the domain before building it.
 - `codebase-design/` — deep-module design guidance.
 - `atdd/` — acceptance test-driven development through outside-in RED/GREEN/REFACTOR.
@@ -21,7 +22,7 @@ Extracting the package over a repository wires the skills into both supported to
 
 - **Claude Code** discovers `.claude/skills/` automatically. The Engineer adapter lists `openspec-atdd` first in its skills frontmatter.
 - **Kiro** discovers `.kiro/skills/`. The Engineer adapter also loads `openspec-atdd` explicitly through its resources list.
-- **Kiro Crew** uses the same Kiro Engineer resource and additionally needs generated `opsx-*` prompts copied to `~/.kiro/prompts/`, as documented by `openspec-atdd`.
+- **Kiro Crew** uses the same Kiro Engineer resource and additionally needs generated `opsx-*` prompts copied to `~/.kiro/prompts/`, as documented by `openspec-setup`.
 - **Other tools** can add a thin agent adapter and symlink the canonical skills into their native skill directory.
 
 Edit a skill once in `skills/`; every adapter resolves that same content.

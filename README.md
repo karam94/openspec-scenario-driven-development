@@ -20,7 +20,7 @@ Kiro Crew runs the interactive Grill by having the Engineer open a live `product
 kirocrew restart
 ```
 
-then confirm `kirocrew doctor` reports `strict identity: ✅ routed`. The script routes the servers, enables session control, and exposes the opsx prompts; see setup step 7 in `skills/openspec-atdd` for the full explanation. Skip this on Claude or plain Kiro CLI — the servers simply will not resolve and the Engineer falls back to handing the Grill off for you to run interactively.
+then confirm `kirocrew doctor` reports `strict identity: ✅ routed`. The script routes the servers, enables session control, and exposes the opsx prompts; see `skills/openspec-setup` (and `reference/kiro-crew-grill.md`) for the full explanation. Skip this on Claude or plain Kiro CLI — the servers simply will not resolve and the Engineer falls back to handing the Grill off for you to run interactively.
 
 ## Agent architecture
 
