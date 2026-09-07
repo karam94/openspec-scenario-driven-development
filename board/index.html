@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OpenSpec Board</title>
+<style>
+  :root {
+    --bg: #0e1116; --surface: #161b22; --border: #2a3038; --fg: #e6edf3;
+    --muted: #8b949e; --accent: #58a6ff; --done: #3fb950; --pending: #6e7681; --warn: #d29922;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f6f8fa; --surface:#fff; --border:#d0d7de; --fg:#1f2328; --muted:#656d76; --accent:#0969da; --done:#1a7f37; --pending:#8c959f; --warn:#9a6700; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; }
+  header { display:flex; align-items:baseline; justify-content:space-between; padding:18px 24px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:5; flex-wrap:wrap; gap:10px; }
+  h1 { font-size:1.2rem; margin:0; }
+  .meta { font-size:0.8rem; color:var(--muted); display:flex; align-items:center; gap:10px; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--done); display:inline-block; }
+  .dot.stale { background:var(--warn); }
+  main { padding:20px 24px 60px; max-width:1200px; margin:0 auto; }
+  .change { border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:12px; background:var(--surface); transition:opacity .3s, filter .3s; }
+  .change.archiving { opacity:.35; filter:grayscale(1); pointer-events:none; }
+  .change-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  .cname { font-weight:600; font-size:1rem; }
+  /* repo grouping */
+  .repo-group { margin-bottom:18px; }
+  .repo-bar { display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface); user-select:none; }
+  .repo-bar:hover { border-color:var(--accent); }
+  .repo-caret { transition:transform .15s; color:var(--muted); font-size:0.8rem; }
+  .repo-group.collapsed .repo-caret { transform:rotate(-90deg); }
+  .repo-title { font-weight:600; font-family:ui-monospace,monospace; font-size:0.9rem; }
+  .repo-summary { font-size:0.74rem; color:var(--muted); margin-left:auto; }
+  .repo-body { padding:12px 0 0 4px; }
+  .repo-group.collapsed .repo-body { display:none; }
+  .archive-btn { margin-left:auto; border:1px solid var(--border); background:none; color:var(--muted); font-size:0.72rem; padding:3px 10px; border-radius:6px; cursor:pointer; }
+  .archive-btn:hover { border-color:var(--warn); color:var(--warn); }
+  .crepo { font-size:0.75rem; color:var(--muted); font-family:ui-monospace,monospace; }
+  .badge { font-size:0.66rem; padding:2px 9px; border-radius:999px; font-weight:700; letter-spacing:.03em; }
+  .badge.complete { background:color-mix(in srgb,var(--done) 20%,transparent); color:var(--done); }
+  .badge.planning { background:color-mix(in srgb,var(--warn) 20%,transparent); color:var(--warn); }
+  .badge.type-refactor { background:color-mix(in srgb,#a371f7 22%,transparent); color:#a371f7; }
+  .badge.type-feature { background:color-mix(in srgb,var(--accent) 20%,transparent); color:var(--accent); }
+  .node.progress { border-color:var(--accent); }
+  .spinner { display:inline-block; width:11px; height:11px; border:2px solid color-mix(in srgb,var(--accent) 35%,transparent); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; vertical-align:-1px; margin-right:4px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .pr-link { display:inline-block; margin-top:5px; font-size:0.66rem; text-decoration:none; color:var(--accent); }
+  .pr-link:hover { text-decoration:underline; }
+  .pr-state { font-size:0.6rem; opacity:0.7; }
+  .chain { display:flex; align-items:stretch; flex-wrap:wrap; gap:0; }
+  .node { flex:1 1 100px; min-width:100px; border:1px solid var(--border); border-radius:9px; padding:10px 8px; margin:0 5px 8px 0; text-align:center; transition:transform .1s; }
+  .node.done { border-color:color-mix(in srgb,var(--done) 55%,var(--border)); background:color-mix(in srgb,var(--done) 9%,transparent); }
+  .node.pending { opacity:.5; border-style:dashed; }
+  .node.na { opacity:.3; }
+  .node.clickable { cursor:pointer; }
+  .node.clickable:hover { transform:translateY(-2px); border-color:var(--accent); }
+  .phase { font-size:0.82rem; font-weight:600; text-transform:capitalize; }
+  .state { font-size:0.68rem; color:var(--muted); margin-top:3px; }
+  .arrow { align-self:center; color:var(--pending); padding:0 3px 8px; }
+  .apply { margin-top:12px; }
+  .bar { height:8px; border-radius:4px; background:var(--border); overflow:hidden; }
+  .bar > i { display:block; height:100%; background:linear-gradient(90deg,var(--done),color-mix(in srgb,var(--done) 70%,#fff)); transition:width .4s; }
+  .apply-label { font-size:0.74rem; color:var(--muted); margin-top:5px; display:flex; justify-content:space-between; }
+  .empty { text-align:center; color:var(--muted); padding:60px 20px; }
+  .err { color:var(--warn); font-size:0.85rem; padding:10px 0; }
+  /* modal */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:20; padding:24px; }
+  .overlay.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; max-width:900px; width:100%; max-height:82vh; display:flex; flex-direction:column; }
+  .modal-head { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); }
+  .modal-title { font-family:ui-monospace,monospace; font-size:0.82rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .modal-x { cursor:pointer; border:none; background:none; color:var(--fg); font-size:1.3rem; line-height:1; padding:2px 8px; }
+  .modal-body { overflow:auto; padding:16px; margin:0; font-family:ui-monospace,monospace; font-size:0.8rem; white-space:pre-wrap; word-break:break-word; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🗂️ OpenSpec Board</h1>
+  <div class="meta"><span class="dot" id="livedot"></span><span id="status">connecting…</span></div>
+</header>
+<main id="root"><div class="empty">Loading…</div></main>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head"><span class="modal-title" id="modalTitle"></span><button class="modal-x" onclick="closeModal()">×</button></div>
+    <pre class="modal-body" id="modalBody"></pre>
+  </div>
+</div>
+
+<script>
+const REFRESH_MS = 15000;
+let lastOk = 0;
+
+// Guard: this page MUST be served over HTTP by board/server.js. Opened directly
+// as a file:// URL, fetch('/api/status') resolves to file:///api/status and dies
+// with a CORS error. Detect that and show how to run it, instead of failing silently.
+if (location.protocol === 'file:') {
+  document.getElementById('root').innerHTML =
+    '<div class="empty" style="line-height:1.7">' +
+    '<div style="font-size:2rem">🚫</div>' +
+    "<p><strong>Don't open this file directly.</strong></p>" +
+    '<p>The board needs its server (it runs the <code>openspec</code> CLI for you).<br>' +
+    'A browser can\'t do that from a <code>file://</code> page.</p>' +
+    '<p style="margin-top:14px">Start it and open the URL it prints:</p>' +
+    '<pre style="display:inline-block;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:ui-monospace,monospace">node board/server.js\n# → http://127.0.0.1:7788</pre>' +
+    '</div>';
+  document.getElementById('status').textContent = 'not served — open via the server URL';
+  document.getElementById('livedot').classList.add('stale');
+  throw new Error('file:// — must be served over HTTP by board/server.js');
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function nodeHtml(p){
+  if(!p.applicable) return `<div class="node na"><div class="phase">${esc(p.id)}</div><div class="state">n/a</div></div>`;
+  if(p.inProgress) return `<div class="node progress"><div class="phase">${esc(p.id)}</div><div class="state"><span class="spinner"></span>in progress</div></div>`;
+  const cls = p.done ? "done clickable" : "pending";
+  const click = p.done && p.file ? ` onclick="openFile('${encodeURIComponent(p.file)}')"` : "";
+  const state = p.done ? "✓ done" : "· pending";
+  return `<div class="node ${cls}"${click}><div class="phase">${esc(p.id)}</div><div class="state">${state}</div></div>`;
+}
+
+function applyNodeHtml(c){
+  const spin = c.applying ? '<span class="spinner"></span>' : '';
+  const state = c.complete ? `✓ ${c.apply.done}/${c.apply.total}` : `${spin}${c.apply.done}/${c.apply.total}`;
+  const pr = c.pr
+    ? `<a class="pr-link" href="${esc(c.pr.url)}" target="_blank" rel="noopener">PR ↗ <span class="pr-state">${esc(c.pr.state)}</span></a>`
+    : '';
+  const cls = c.complete ? 'done' : (c.applying ? 'progress' : 'pending');
+  return `<div class="node ${cls}"><div class="phase">apply</div><div class="state">${state}</div>${pr}</div>`;
+}
+
+function changeHtml(c){
+  const pct = c.apply.total ? Math.round(100*c.apply.done/c.apply.total) : 0;
+  const badge = c.complete ? '<span class="badge complete">COMPLETE</span>'
+              : c.applying ? '<span class="badge planning">APPLYING</span>'
+              : '<span class="badge planning">PLANNING</span>';
+  const typeBadge = c.type === 'refactor'
+    ? '<span class="badge type-refactor">REFACTOR</span>'
+    : '<span class="badge type-feature">FEATURE</span>';
+  const chain = c.phases.map(nodeHtml).join('<div class="arrow">→</div>')
+    + `<div class="arrow">→</div>${applyNodeHtml(c)}`;
+  const archive = `<button class="archive-btn" onclick="archiveChange('${encodeURIComponent(c.repoPath)}','${encodeURIComponent(c.change)}',this)">Archive</button>`;
+  const cid = 'chg-' + esc(c.repo + '/' + c.change).replace(/[^a-zA-Z0-9]/g,'_');
+  return `<div class="change" id="${cid}">
+    <div class="change-head"><span class="cname">${esc(c.change)}</span>${typeBadge}${badge}<span class="crepo">${esc(c.schema)}</span>${archive}</div>
+    <div class="chain">${chain}</div>
+    <div class="apply"><div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="apply-label"><span>apply progress</span><span>${c.apply.done} / ${c.apply.total} tasks</span></div></div>
+  </div>`;
+}
+
+// Remember which repo groups the user collapsed, so a 15s refresh doesn't reset them.
+const collapsed = new Set(JSON.parse(localStorage.getItem('osb-collapsed') || '[]'));
+function toggleRepo(repo){
+  const key = decodeURIComponent(repo);
+  if (collapsed.has(key)) collapsed.delete(key); else collapsed.add(key);
+  localStorage.setItem('osb-collapsed', JSON.stringify([...collapsed]));
+  const g = document.getElementById('repo-'+CSS.escape(key));
+  if (g) g.classList.toggle('collapsed');
+}
+
+function repoGroupHtml(repo, list){
+  const done = list.filter(c=>c.complete).length;
+  const isCol = collapsed.has(repo);
+  return `<div class="repo-group ${isCol?'collapsed':''}" id="repo-${esc(repo)}">
+    <div class="repo-bar" onclick="toggleRepo('${encodeURIComponent(repo)}')">
+      <span class="repo-caret">▼</span>
+      <span class="repo-title">${esc(repo)}</span>
+      <span class="repo-summary">${list.length} change(s) · ${done} complete</span>
+    </div>
+    <div class="repo-body">${list.map(changeHtml).join('')}</div>
+  </div>`;
+}
+
+// Changes the user just archived — kept hidden between the success and the next
+// poll actually dropping them, so an archived row never flickers back.
+const archived = new Set();
+
+async function archiveChange(encRepo, encChange, btn){
+  const repoPath = decodeURIComponent(encRepo), change = decodeURIComponent(encChange);
+  if (!confirm(`Archive "${change}"?\n\nThis runs \`openspec archive\` (moves it to changes/archive/). Reversible on disk.`)) return;
+  const card = btn.closest('.change');
+  btn.disabled = true; btn.textContent = 'Archiving…';
+  try {
+    const r = await fetch('/api/archive', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({repoPath, change})});
+    const d = await r.json();
+    if (d.ok) {
+      archived.add(repoPath + '\u0000' + change);   // remember it's gone
+      if (card) { card.classList.add('archiving'); setTimeout(()=>card.remove(), 320); }  // grey out then remove
+      refresh();
+    } else {
+      alert('Archive failed: ' + (d.error||'unknown')); btn.disabled=false; btn.textContent='Archive';
+    }
+  } catch(e){ alert('Archive failed: ' + e); btn.disabled=false; btn.textContent='Archive'; }
+}
+
+async function refresh(){
+  try {
+    const r = await fetch('/api/status', {cache:'no-store'});
+    const data = await r.json();
+    lastOk = Date.now();
+    const root = document.getElementById('root');
+    if (data.error) { root.innerHTML = `<div class="err">Error: ${esc(data.error)}</div>`; }
+    else if (!data.changes || !data.changes.length) {
+      root.innerHTML = `<div class="empty">No active OpenSpec changes found across ${data.repoCount||0} repo(s).</div>`;
+    } else {
+      // Drop changes the user just archived (until the CLI move is reflected).
+      let changes = data.changes.filter(c => !archived.has(c.repoPath + '\u0000' + c.change));
+      // Once a change no longer appears from the server, forget it (it's really gone).
+      const present = new Set(data.changes.map(c => c.repoPath + '\u0000' + c.change));
+      for (const k of [...archived]) if (!present.has(k)) archived.delete(k);
+      if (!changes.length) {
+        root.innerHTML = `<div class="empty">No active OpenSpec changes found across ${data.repoCount||0} repo(s).</div>`;
+      } else {
+        // group by repo, incomplete changes first within each repo
+        const byRepo = {};
+        for (const c of changes) (byRepo[c.repo] ||= []).push(c);
+        const repos = Object.keys(byRepo).sort();
+        for (const rk of repos) byRepo[rk].sort((a,b)=> (a.complete?1:0)-(b.complete?1:0) || a.change.localeCompare(b.change));
+        root.innerHTML = repos.map(rk => repoGroupHtml(rk, byRepo[rk])).join('');
+      }
+    }
+    document.getElementById('status').textContent =
+      `${(data.changes||[]).length} change(s) · ${data.repoCount||0} repo(s) · updated ${new Date().toLocaleTimeString()}`;
+    document.getElementById('livedot').classList.remove('stale');
+  } catch(e){
+    document.getElementById('status').textContent = 'refresh failed — retrying';
+    document.getElementById('livedot').classList.add('stale');
+  }
+}
+
+async function openFile(encPath){
+  const p = decodeURIComponent(encPath);
+  document.getElementById('modalTitle').textContent = p;
+  document.getElementById('modalBody').textContent = 'Loading…';
+  document.getElementById('overlay').classList.add('open');
+  try {
+    const r = await fetch('/api/file?path='+encodeURIComponent(p), {cache:'no-store'});
+    document.getElementById('modalBody').textContent = r.ok ? await r.text() : 'Could not read file.';
+  } catch { document.getElementById('modalBody').textContent = 'Could not read file.'; }
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+refresh();
+setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>
