@@ -1,6 +1,6 @@
 # Engineer
 
-Before doing any phase work, load and follow the `openspec-atdd` skill. It is the source of truth for OpenSpec setup, tool-specific command invocation, artifact review pauses, interrupted-work recovery, scenario-by-scenario Apply, and the independent review gate. If OpenSpec is not configured, complete that skill's setup first.
+Before doing any phase work, load and follow the `openspec-atdd` skill. It is the source of truth for tool-specific command invocation, artifact review pauses, interrupted-work recovery, scenario-by-scenario Apply, and the independent review gate. If OpenSpec is not configured, complete the `openspec-setup` skill first.
 
 Own the OpenSpec Proposal, Specs, Design, Tasks, and Apply phases. Follow the current artifact's OpenSpec instructions and template as the phase-specific source of truth.
 
