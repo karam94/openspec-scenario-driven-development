@@ -156,16 +156,27 @@ function runArchive(repo, change) {
   });
 }
 
-// Count "- [ ]" / "- [x]" checkboxes in tasks.md for apply progress.
+// Count "- [ ]" / "- [x]" checkboxes in tasks.md for apply progress. Separates
+// the review/PR meta-tasks (the final "review gate" / "open the PR" items) from
+// the implementation tasks, and reports whether the review gate task is ticked.
 function taskProgress(repo, change) {
   const p = path.join(repo, "openspec", "changes", change, "tasks.md");
   try {
     const text = fs.readFileSync(p, "utf8");
-    const all = text.match(/^\s*-\s*\[[ xX]\]/gm) || [];
-    const done = text.match(/^\s*-\s*\[[xX]\]/gm) || [];
-    return { total: all.length, done: done.length };
+    const lines = text.split("\n").filter((l) => /^\s*-\s*\[[ xX]\]/.test(l));
+    const ticked = (l) => /^\s*-\s*\[[xX]\]/.test(l);
+    // A review-gate task mentions an independent review / code-reviewer gate.
+    const reviewLine = lines.find((l) => /code[- ]?review|review gate|independent .*review/i.test(l));
+    const reviewTaskDone = reviewLine ? ticked(reviewLine) : null; // null = no such task
+    // Implementation tasks = everything that isn't the review-gate or open-PR meta task.
+    const implLines = lines.filter((l) => !/code[- ]?review|review gate|independent .*review|open the pr/i.test(l));
+    return {
+      total: implLines.length,
+      done: implLines.filter(ticked).length,
+      reviewTaskDone,
+    };
   } catch {
-    return { total: 0, done: 0 };
+    return { total: 0, done: 0, reviewTaskDone: null };
   }
 }
 
@@ -224,24 +235,42 @@ function changeBranch(repo, change) {
   return null;
 }
 
-// Resolve an open/merged PR URL for a change's branch via gh (best-effort, cached
-// per collect() cycle). Returns a URL string or null. gh missing / no PR → null.
+// Resolve an open/merged PR for a change's branch via gh (best-effort). Returns
+// {url, state, reviewDecision} or null. state ∈ OPEN|MERGED|CLOSED.
 function prForBranch(repo, branch) {
   return new Promise((resolve) => {
     if (!branch) return resolve(null);
     execFile(
       "gh",
-      ["pr", "list", "--head", branch, "--state", "all", "--json", "url,state", "--limit", "1"],
+      ["pr", "list", "--head", branch, "--state", "all", "--json", "url,state,reviewDecision,isDraft", "--limit", "1"],
       { cwd: repo, timeout: 8000 },
       (err, stdout) => {
         if (err || !stdout) return resolve(null);
         try {
           const arr = JSON.parse(stdout);
-          resolve(arr[0] ? { url: arr[0].url, state: arr[0].state } : null);
+          const p = arr[0];
+          resolve(p ? { url: p.url, state: p.state, reviewDecision: p.reviewDecision || "", isDraft: !!p.isDraft } : null);
         } catch {
           resolve(null);
         }
       }
+    );
+  });
+}
+
+// Fallback apply signal: when tasks.md checkboxes are ALL unticked but the
+// change's branch has commits, the executor did the work without ticking boxes
+// (a known workflow gap). Count commits on the branch that aren't on the default
+// branch, so the board shows *some* progress instead of a frozen 0/N.
+function branchCommits(repo, branch) {
+  return new Promise((resolve) => {
+    if (!branch) return resolve(0);
+    // commits on <branch> not on origin/HEAD's default (main/master) — best-effort.
+    execFile(
+      "bash",
+      ["-c", `git -C '${repo}' rev-list --count ${branch} ^origin/HEAD 2>/dev/null || git -C '${repo}' rev-list --count ${branch} ^master 2>/dev/null || echo 0`],
+      { timeout: 8000 },
+      (err, stdout) => resolve(err ? 0 : parseInt(String(stdout).trim(), 10) || 0)
     );
   });
 }
@@ -266,13 +295,49 @@ async function shapeChange(repo, change, status) {
 
   const prog = taskProgress(repo, change);
   const planningComplete = !!(status && status.isPlanningComplete);
-  const applying = planningComplete && prog.total > 0 && prog.done < prog.total;
-  const complete = !!(status && status.isComplete) && prog.total > 0 && prog.done === prog.total;
 
   const type = changeType(repo, change);
   const branch = changeBranch(repo, change);
-  // Only look up a PR once apply has started (a branch exists / work is underway).
   const pr = planningComplete ? await prForBranch(repo, branch) : null;
+
+  // Apply progress. Primary signal = tasks.md checkboxes. Fallback: if planning
+  // is done, no boxes are ticked, yet the branch has commits, the executor did
+  // the work without ticking boxes — surface commit count so progress is visible.
+  let apply = { total: prog.total, done: prog.done, source: "tasks.md" };
+  if (planningComplete && prog.total > 0 && prog.done === 0) {
+    const commits = await branchCommits(repo, branch);
+    if (commits > 0) apply = { total: prog.total, done: null, commits, source: "commits" };
+  }
+  const applyDoneByTasks =
+    (apply.source === "tasks.md" && apply.total > 0 && apply.done === apply.total) ||
+    (apply.source === "commits" && !!pr);
+
+  // Review stage: its own node. PRIMARY signal is the review-gate task in
+  // tasks.md (the atdd workflow's independent code-reviewer gate ticked off) —
+  // this is the review that actually happens in-session. GitHub's own
+  // reviewDecision (a human/bot PR approval) counts as a SECONDARY signal.
+  //   passed   → review-gate task ticked, OR PR approved/merged
+  //   pending  → apply done / PR exists but review not yet passed
+  //   none     → apply not underway and no PR
+  const ghApproved = pr && (pr.state === "MERGED" || pr.reviewDecision === "APPROVED");
+  const reviewEntered = prog.reviewTaskDone === true || ghApproved || !!pr;
+  let review = "none";
+  if (prog.reviewTaskDone === true || ghApproved) review = "passed";
+  else if (applyDoneByTasks || pr) review = "pending";
+  const reviewPassed = review === "passed";
+
+  // Apply is considered DONE (green) once implementation finishes OR review has
+  // been entered — a PR exists / review is under way means apply is behind us,
+  // even if a trailing meta-task (e.g. runbook URLs) is still unticked.
+  const applyDone = applyDoneByTasks || reviewEntered;
+  const applying = planningComplete && !applyDone;
+
+  // The change is COMPLETE when the review gate has passed.
+  const complete = reviewPassed;
+
+  // Path to tasks.md so the apply node can link to it (open in the file modal).
+  const tasksFile = path.join(repo, "openspec", "changes", change, "tasks.md");
+  apply.file = fs.existsSync(tasksFile) ? tasksFile : null;
 
   return {
     change,
@@ -281,8 +346,10 @@ async function shapeChange(repo, change, status) {
     schema: (status && status.schemaName) || "unknown",
     type,
     phases,
-    apply: prog,
+    apply,
+    applyDone,
     applying,
+    review,        // none | pending | passed
     planningComplete,
     complete,
     pr,
