@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Independently review a complete change after implementation and validation. Read-only; returns structured local findings and a verdict.
+description: Reviews a complete, committed change against its OpenSpec artifacts, tests, and repository conventions, returning severity-classified findings and an APPROVE / REQUEST_CHANGES verdict. Use when acting as the independent review gate after implementation and validation. Read-only — never mutates the repository.
 ---
 
 # Code Review

@@ -2,5 +2,8 @@
 .claude/settings.json
 .claude/z.settings.json
 
+# Kiro
+.kiro/settings/cli.json
+
 # macOS
 .DS_Store
