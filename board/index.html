@@ -5,13 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>OpenSpec Board</title>
 <style>
+  /* Dark is the default palette. Light applies when either the OS prefers light
+     AND no explicit choice is set, OR the user picks light via the toggle
+     (html[data-theme="light"]). An explicit dark choice (data-theme="dark")
+     always wins, even under a light OS. */
   :root {
-    --bg: #0e1116; --surface: #161b22; --border: #2a3038; --fg: #e6edf3;
-    --muted: #8b949e; --accent: #58a6ff; --done: #3fb950; --pending: #6e7681; --warn: #d29922;
+    --bg: #0a0e1a; --surface: #121829; --border: #24304d; --fg: #e6edf7;
+    --muted: #8792ad; --accent: #5b8def; --done: #3fb950; --pending: #5a6685; --warn: #e3a008;
+  }
+  html[data-theme="light"] {
+    --bg:#f6f8fa; --surface:#fff; --border:#d0d7de; --fg:#1f2328; --muted:#656d76; --accent:#0969da; --done:#1a7f37; --pending:#8c959f; --warn:#9a6700;
   }
   @media (prefers-color-scheme: light) {
-    :root { --bg:#f6f8fa; --surface:#fff; --border:#d0d7de; --fg:#1f2328; --muted:#656d76; --accent:#0969da; --done:#1a7f37; --pending:#8c959f; --warn:#9a6700; }
+    html:not([data-theme]) {
+      --bg:#f6f8fa; --surface:#fff; --border:#d0d7de; --fg:#1f2328; --muted:#656d76; --accent:#0969da; --done:#1a7f37; --pending:#8c959f; --warn:#9a6700;
+    }
   }
+  .theme-btn { border:1px solid var(--border); background:none; color:var(--muted); font-size:0.9rem; padding:3px 10px; border-radius:6px; cursor:pointer; line-height:1; }
+  .theme-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .pr-node { text-decoration:none; color:inherit; }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; }
   header { display:flex; align-items:baseline; justify-content:space-between; padding:18px 24px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:5; flex-wrap:wrap; gap:10px; }
@@ -77,7 +89,7 @@
 <body>
 <header>
   <h1>🗂️ OpenSpec Board</h1>
-  <div class="meta"><span class="dot" id="livedot"></span><span id="status">connecting…</span></div>
+  <div class="meta"><button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle dark / light">🌓</button><span class="dot" id="livedot"></span><span id="status">connecting…</span></div>
 </header>
 <main id="root"><div class="empty">Loading…</div></main>
 
@@ -91,6 +103,21 @@
 <script>
 const REFRESH_MS = 15000;
 let lastOk = 0;
+
+// Theme: apply the saved choice immediately (no flash). No saved choice → follow
+// OS (the CSS media query handles that via html:not([data-theme])).
+(function initTheme(){
+  const saved = localStorage.getItem('osb-theme');
+  if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
+})();
+function toggleTheme(){
+  // Resolve current effective theme, then flip and persist.
+  const explicit = document.documentElement.getAttribute('data-theme');
+  const effective = explicit || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  const next = effective === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('osb-theme', next);
+}
 
 // Guard: this page MUST be served over HTTP by board/server.js. Opened directly
 // as a file:// URL, fetch('/api/status') resolves to file:///api/status and dies
@@ -123,31 +150,59 @@ function nodeHtml(p){
 
 function applyNodeHtml(c){
   const spin = c.applying ? '<span class="spinner"></span>' : '';
-  const state = c.complete ? `✓ ${c.apply.done}/${c.apply.total}` : `${spin}${c.apply.done}/${c.apply.total}`;
-  const pr = c.pr
-    ? `<a class="pr-link" href="${esc(c.pr.url)}" target="_blank" rel="noopener">PR ↗ <span class="pr-state">${esc(c.pr.state)}</span></a>`
-    : '';
-  const cls = c.complete ? 'done' : (c.applying ? 'progress' : 'pending');
-  return `<div class="node ${cls}"><div class="phase">apply</div><div class="state">${state}</div>${pr}</div>`;
+  let label;
+  if (c.apply.source === 'commits') {
+    label = c.applyDone ? `✓ ${c.apply.commits} commits` : `${spin}${c.apply.commits} commit(s)`;
+  } else {
+    label = c.applyDone ? `✓ ${c.apply.done}/${c.apply.total}` : `${spin}${c.apply.done||0}/${c.apply.total}`;
+  }
+  const cls = c.applyDone ? 'done clickable' : (c.applying ? 'progress' : 'pending');
+  const click = c.apply.file ? ` onclick="openFile('${encodeURIComponent(c.apply.file)}')"` : "";
+  return `<div class="node ${cls}"${click}><div class="phase">apply</div><div class="state">${label}</div></div>`;
+}
+
+function reviewNodeHtml(c){
+  if (c.review === 'passed') return `<div class="node done"><div class="phase">review</div><div class="state">✓ approved</div></div>`;
+  if (c.review === 'pending') return `<div class="node progress"><div class="phase">review</div><div class="state"><span class="spinner"></span>in review</div></div>`;
+  return `<div class="node pending"><div class="phase">review</div><div class="state">· pending</div></div>`;
+}
+
+function doneNodeHtml(c){
+  // Final node = the PR. review already shows "approved", so here just show the
+  // PR's own state (merged / open / draft) — don't repeat "approved".
+  if (c.pr){
+    const cls = c.complete ? 'done' : 'progress';
+    const state = c.pr.state === 'MERGED' ? '✓ merged' : esc(c.pr.state.toLowerCase());
+    return `<a class="node ${cls} pr-node" href="${esc(c.pr.url)}" target="_blank" rel="noopener"><div class="phase">done</div><div class="state">PR ↗ ${state}</div></a>`;
+  }
+  return `<div class="node pending"><div class="phase">done</div><div class="state">· no PR</div></div>`;
 }
 
 function changeHtml(c){
-  const pct = c.apply.total ? Math.round(100*c.apply.done/c.apply.total) : 0;
   const badge = c.complete ? '<span class="badge complete">COMPLETE</span>'
+              : c.review === 'pending' ? '<span class="badge planning">IN REVIEW</span>'
               : c.applying ? '<span class="badge planning">APPLYING</span>'
               : '<span class="badge planning">PLANNING</span>';
   const typeBadge = c.type === 'refactor'
     ? '<span class="badge type-refactor">REFACTOR</span>'
     : '<span class="badge type-feature">FEATURE</span>';
   const chain = c.phases.map(nodeHtml).join('<div class="arrow">→</div>')
-    + `<div class="arrow">→</div>${applyNodeHtml(c)}`;
+    + `<div class="arrow">→</div>${applyNodeHtml(c)}`
+    + `<div class="arrow">→</div>${reviewNodeHtml(c)}`
+    + `<div class="arrow">→</div>${doneNodeHtml(c)}`;
   const archive = `<button class="archive-btn" onclick="archiveChange('${encodeURIComponent(c.repoPath)}','${encodeURIComponent(c.change)}',this)">Archive</button>`;
   const cid = 'chg-' + esc(c.repo + '/' + c.change).replace(/[^a-zA-Z0-9]/g,'_');
+  // progress bar only meaningful for tasks.md-sourced apply
+  const bar = (c.apply.source === 'tasks.md' && c.apply.total)
+    ? `<div class="apply"><div class="bar"><i style="width:${Math.round(100*(c.apply.done||0)/c.apply.total)}%"></i></div>
+        <div class="apply-label"><span>apply progress</span><span>${c.apply.done||0} / ${c.apply.total} tasks</span></div></div>`
+    : (c.apply.source === 'commits'
+        ? `<div class="apply"><div class="apply-label"><span>apply progress</span><span>${c.apply.commits} commit(s) · tasks.md not ticked</span></div></div>`
+        : '');
   return `<div class="change" id="${cid}">
     <div class="change-head"><span class="cname">${esc(c.change)}</span>${typeBadge}${badge}<span class="crepo">${esc(c.schema)}</span>${archive}</div>
     <div class="chain">${chain}</div>
-    <div class="apply"><div class="bar"><i style="width:${pct}%"></i></div>
-      <div class="apply-label"><span>apply progress</span><span>${c.apply.done} / ${c.apply.total} tasks</span></div></div>
+    ${bar}
   </div>`;
 }
 

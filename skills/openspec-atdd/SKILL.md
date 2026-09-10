@@ -112,7 +112,8 @@ For each scenario:
 2. **GREEN** — make the smallest implementation change that satisfies it.
 3. **REFACTOR** — improve the implementation while keeping all tests green.
 4. Commit the completed scenario and capture the commit SHA.
-5. Stop for user review before beginning another scenario.
+5. **Tick the scenario's tasks in `tasks.md`** — change each completed `- [ ]` to `- [x]` as you finish it (per sub-task, not just at the end). `tasks.md` is the source of truth for progress: tooling and dashboards read these checkboxes, so an unticked box reads as "not done" even when the work is committed. Never leave a completed task unticked; never tick a task you have not actually completed.
+6. Stop for user review before beginning another scenario.
 
 Do not batch scenarios, guess ambiguous business behaviour, delete tests, or weaken assertions to manufacture a pass.
 
@@ -125,6 +126,8 @@ At the end of the assigned Apply scope, the Engineer must:
 3. Supply the repository path, base branch, reviewed commit SHA, complete diff, OpenSpec artifacts, and validation results.
 4. Fix every `BLOCKING` finding returned with `REQUEST_CHANGES`, commit the fixes, and create another fresh reviewer against the new SHA.
 5. Continue only after `APPROVE`. Surface warnings and nits to the user.
+
+Tick the review-gate task in `tasks.md` (`- [ ]` → `- [x]`) once the reviewer returns `APPROVE` — this is the signal dashboards use to mark the review stage complete.
 
 The Engineer must never review its own work or substitute a generic agent for `code-reviewer`.
 
