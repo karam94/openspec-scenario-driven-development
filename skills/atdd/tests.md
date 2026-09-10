@@ -25,7 +25,6 @@ Characteristics:
 - Tests behavior users/callers care about
 - Uses public API only (do not call private functions or methods)
 - Do not assert internal implementation details
-- 
 - Survives internal refactors
 - Describes WHAT, not HOW
 - One logical assertion per test
