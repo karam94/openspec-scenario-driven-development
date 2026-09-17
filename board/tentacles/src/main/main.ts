@@ -1,9 +1,13 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Notification, shell } from "electron";
 import path from "node:path";
 import core from "./core";
-import { bootstrap, resolveShellPath, loginShellPath, resolvePathFor } from "./wiring";
+import { bootstrap, resolveShellPath, loginShellPath, resolvePathFor, makeNotifier, makeNativeNotify } from "./wiring";
 
 const args = core.defaultArgs();
+
+// Native completion notifications: the notifier holds last-seen completion state
+// across scans and shows a native banner per newly-completed phase / change.
+const notifier = makeNotifier(makeNativeNotify(Notification));
 
 // Runs from build/main/ after compile, so preload and the renderer index resolve
 // relative to that: build/preload/preload.js and build/renderer/index.html. The
@@ -30,5 +34,6 @@ app.whenReady().then(() =>
     getArgs: () => args,
     resolvePath,
     windowOpts,
+    observe: notifier.observe,
   })
 );

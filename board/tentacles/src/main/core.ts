@@ -338,6 +338,86 @@ export async function shapeChange(repo: string, change: string, status: RawStatu
   };
 }
 
+// ---------------------------------------------------------------------------
+// Completion notifications (pure decision; the native Notification().show()
+// lives in wiring.ts). The decision diffs the previous last-seen completion
+// state against the freshly shaped changes and returns the edges to notify.
+// ---------------------------------------------------------------------------
+
+export interface BoardNotification {
+  repo: string;
+  change: string;
+  kind: "phase" | "complete";
+  phase?: string;
+  title: string;
+  body: string;
+}
+
+interface ChangeCompletionState {
+  steps: string[];
+  complete: boolean;
+}
+
+export type NotifyState = Record<string, ChangeCompletionState>;
+
+function notifyKey(c: Change): string {
+  return `${c.repoPath}\u0000${c.change}`;
+}
+
+// The completed "steps" of a change: each done planning phase, apply once done,
+// and review once passed. Reaching `complete` is reported separately as a
+// distinct change-complete notification, so it is not double-counted here.
+function completedSteps(c: Change): string[] {
+  const steps: string[] = [];
+  for (const p of c.phases) if (p.applicable && p.done) steps.push(p.id);
+  if (c.applyDone) steps.push("apply");
+  if (c.review === "passed") steps.push("review");
+  return steps;
+}
+
+// Given the previous state (null on the first scan) and the freshly shaped
+// changes, return the notifications to fire and the next state to remember. On
+// the first scan the state is seeded and nothing fires, so a launch burst of
+// pre-existing completions is suppressed.
+export function computeNotifications(
+  prev: NotifyState | null,
+  changes: Change[]
+): { next: NotifyState; notifications: BoardNotification[] } {
+  const next: NotifyState = {};
+  for (const c of changes) {
+    next[notifyKey(c)] = { steps: completedSteps(c), complete: c.complete };
+  }
+  if (prev == null) return { next, notifications: [] };
+
+  const notifications: BoardNotification[] = [];
+  for (const c of changes) {
+    const before = prev[notifyKey(c)] || { steps: [], complete: false };
+    const seen = new Set(before.steps);
+    for (const step of completedSteps(c)) {
+      if (!seen.has(step)) {
+        notifications.push({
+          repo: c.repo,
+          change: c.change,
+          kind: "phase",
+          phase: step,
+          title: `${c.change} — ${step} complete`,
+          body: `${c.repo}: ${step} phase finished`,
+        });
+      }
+    }
+    if (c.complete && !before.complete) {
+      notifications.push({
+        repo: c.repo,
+        change: c.change,
+        kind: "complete",
+        title: `${c.change} complete`,
+        body: `${c.repo}: all phases done`,
+      });
+    }
+  }
+  return { next, notifications };
+}
+
 export async function collect(repos: string[]): Promise<StatusResult> {
   const changes: Change[] = [];
   for (const repo of repos) {
@@ -406,6 +486,7 @@ export default {
   prForBranch,
   branchCommits,
   shapeChange,
+  computeNotifications,
   collect,
   getStatus,
   archiveChange,

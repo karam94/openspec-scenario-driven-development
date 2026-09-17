@@ -8,9 +8,10 @@
  */
 
 import { execFile } from "node:child_process";
-import type { App, BrowserWindow, IpcMain, IpcMainInvokeEvent, WebPreferences } from "electron";
-import type { Args } from "./core";
-import type { ArchiveArgs, ArchiveResult, ChannelMap, ReadFileResult, StatusResult } from "../shared/ipc-contract";
+import type { App, BrowserWindow, IpcMain, IpcMainInvokeEvent, Notification, WebPreferences } from "electron";
+import { computeNotifications } from "./core";
+import type { Args, BoardNotification, NotifyState } from "./core";
+import type { ArchiveArgs, ArchiveResult, Change, ChannelMap, ReadFileResult, StatusResult } from "../shared/ipc-contract";
 
 // IPC channel names. preload.ts hardcodes the same string literals (a sandboxed
 // preload cannot import this module); both are typed against the shared
@@ -45,10 +46,15 @@ export function secureWebPreferences(preloadPath: string): WebPreferences {
 }
 
 // The three privileged operations, each backed by core. `getArgs` is a getter
-// so the scan args are read fresh per call.
-export function makeHandlers(core: BoardCore, getArgs: () => Args) {
+// so the scan args are read fresh per call. `observe` (optional) is handed each
+// scan's changes so completion notifications can fire main-side.
+export function makeHandlers(core: BoardCore, getArgs: () => Args, observe?: (changes: Change[]) => void) {
   return {
-    getStatus: () => core.getStatus(getArgs()),
+    getStatus: async () => {
+      const result = await core.getStatus(getArgs());
+      if (observe && !("error" in result)) observe(result.changes);
+      return result;
+    },
     readFile: (_event: IpcMainInvokeEvent, filePath: string) => core.readArtifact(getArgs(), filePath),
     archive: (_event: IpcMainInvokeEvent, payload: ArchiveArgs | undefined) => {
       const { repoPath, change } = payload || ({} as Partial<ArchiveArgs>);
@@ -57,12 +63,36 @@ export function makeHandlers(core: BoardCore, getArgs: () => Args) {
   };
 }
 
-export function registerIpc(ipcMain: IpcMain, core: BoardCore, getArgs: () => Args) {
-  const handlers = makeHandlers(core, getArgs);
+export function registerIpc(ipcMain: IpcMain, core: BoardCore, getArgs: () => Args, observe?: (changes: Change[]) => void) {
+  const handlers = makeHandlers(core, getArgs, observe);
   ipcMain.handle(IPC.getStatus, handlers.getStatus);
   ipcMain.handle(IPC.readFile, handlers.readFile);
   ipcMain.handle(IPC.archive, handlers.archive);
   return handlers;
+}
+
+// Completion-notification glue: holds the last-seen state across scans and shows
+// a native notification per decided edge. The decision (computeNotifications) is
+// unit-tested in core; the native `show` is the untested boundary.
+export type NativeNotify = (n: BoardNotification) => void;
+
+export function makeNotifier(show: NativeNotify) {
+  let state: NotifyState | null = null;
+  return {
+    observe(changes: Change[]): void {
+      const { next, notifications } = computeNotifications(state, changes);
+      state = next;
+      for (const n of notifications) show(n);
+    },
+  };
+}
+
+// Builds the native show from Electron's Notification constructor. main.ts passes
+// the real one; this is the only place a native OS banner is created.
+export function makeNativeNotify(NotificationCtor: typeof Notification): NativeNotify {
+  return (n) => {
+    new NotificationCtor({ title: n.title, body: n.body }).show();
+  };
 }
 
 // External links (the board's PR link uses target="_blank") must open in the
@@ -114,6 +144,7 @@ export interface BootstrapDeps {
   resolvePath: () => Promise<unknown>;
   windowOpts: WindowOpts;
   platform?: NodeJS.Platform;
+  observe?: (changes: Change[]) => void;
 }
 
 // Ordered startup coordinator. Registers IPC handlers BEFORE any window can call
@@ -129,8 +160,9 @@ export async function bootstrap({
   resolvePath,
   windowOpts,
   platform = process.platform,
+  observe,
 }: BootstrapDeps) {
-  registerIpc(ipcMain, core, getArgs);
+  registerIpc(ipcMain, core, getArgs, observe);
   const windows = makeWindowManager(BrowserWindowCtor, windowOpts);
   let started = false;
 
