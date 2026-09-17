@@ -1,14 +1,20 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { ElectronAPI } from "../shared/ipc-contract";
+import type { Channel, ElectronAPI } from "../shared/ipc-contract";
 
-// Exactly three named channels — no generic command passthrough. The channel
-// strings are hardcoded because a sandboxed preload cannot import wiring.ts at
-// runtime; the `ElectronAPI` annotation asserts this surface against the shared
-// contract (the type-only import erases at compile).
+// Exactly three named channels — no generic command passthrough. A sandboxed
+// preload cannot import wiring.ts at runtime, so the channel strings are
+// declared here; typing the map as Record<keyof ElectronAPI, Channel> asserts
+// them against the shared contract (a typo or unknown channel fails to compile).
+const CHANNELS: Record<keyof ElectronAPI, Channel> = {
+  getStatus: "board:getStatus",
+  readFile: "board:readFile",
+  archive: "board:archive",
+};
+
 const api: ElectronAPI = {
-  getStatus: () => ipcRenderer.invoke("board:getStatus"),
-  readFile: (filePath) => ipcRenderer.invoke("board:readFile", filePath),
-  archive: (payload) => ipcRenderer.invoke("board:archive", payload),
+  getStatus: () => ipcRenderer.invoke(CHANNELS.getStatus),
+  readFile: (filePath) => ipcRenderer.invoke(CHANNELS.readFile, filePath),
+  archive: (payload) => ipcRenderer.invoke(CHANNELS.archive, payload),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);
