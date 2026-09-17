@@ -38,6 +38,8 @@ export type MockApi = {
   getStatus: ReturnType<typeof vi.fn>;
   readFile: ReturnType<typeof vi.fn>;
   archive: ReturnType<typeof vi.fn>;
+  getSettings: ReturnType<typeof vi.fn>;
+  setSettings: ReturnType<typeof vi.fn>;
 };
 
 export function mockApi(over: Partial<ElectronAPI> = {}): MockApi {
@@ -45,6 +47,8 @@ export function mockApi(over: Partial<ElectronAPI> = {}): MockApi {
     getStatus: vi.fn().mockResolvedValue(makeStatus([])),
     readFile: vi.fn().mockResolvedValue({ ok: true, contents: "" }),
     archive: vi.fn().mockResolvedValue({ ok: true }),
+    getSettings: vi.fn().mockResolvedValue({ root: "/Code" }),
+    setSettings: vi.fn().mockResolvedValue({ ok: true, root: "/Code" }),
     ...over,
   } as unknown as MockApi;
   (window as unknown as { electronAPI: ElectronAPI }).electronAPI = api as unknown as ElectronAPI;

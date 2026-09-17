@@ -8,10 +8,22 @@
  */
 
 import { execFile } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import type { App, BrowserWindow, IpcMain, IpcMainInvokeEvent, Notification, WebPreferences } from "electron";
-import { computeNotifications } from "./core";
-import type { Args, BoardNotification, NotifyState } from "./core";
-import type { ArchiveArgs, ArchiveResult, Change, ChannelMap, ReadFileResult, StatusResult } from "../shared/ipc-contract";
+import { computeNotifications, parseSettings, validateRoot, dirExists } from "./core";
+import type { Args, BoardNotification, NotifyState, Settings } from "./core";
+import type {
+  ArchiveArgs,
+  ArchiveResult,
+  BoardSettings,
+  Change,
+  ChannelMap,
+  ReadFileResult,
+  SetSettingsArgs,
+  SetSettingsResult,
+  StatusResult,
+} from "../shared/ipc-contract";
 
 // IPC channel names. preload.ts hardcodes the same string literals (a sandboxed
 // preload cannot import this module); both are typed against the shared
@@ -20,6 +32,8 @@ export const IPC: ChannelMap = {
   getStatus: "board:getStatus",
   readFile: "board:readFile",
   archive: "board:archive",
+  getSettings: "board:getSettings",
+  setSettings: "board:setSettings",
 };
 
 // The subset of core the handlers depend on.
@@ -45,10 +59,28 @@ export function secureWebPreferences(preloadPath: string): WebPreferences {
   };
 }
 
+// The scan root is user-settable and persisted to settings.json. `SettingsDeps`
+// gives the handlers a way to read/write the file and read/mutate the live scan
+// root, injected so the tested handler logic never touches disk directly.
+export interface SettingsDeps {
+  read: () => Settings;
+  write: (settings: Settings) => void;
+  getRoot: () => string;
+  setRoot: (root: string) => void;
+  isDir?: (p: string) => boolean;
+  home?: string;
+}
+
 // The three privileged operations, each backed by core. `getArgs` is a getter
 // so the scan args are read fresh per call. `observe` (optional) is handed each
-// scan's changes so completion notifications can fire main-side.
-export function makeHandlers(core: BoardCore, getArgs: () => Args, observe?: (changes: Change[]) => void) {
+// scan's changes so completion notifications can fire main-side. `settings`
+// (optional) backs the getSettings/setSettings channels.
+export function makeHandlers(
+  core: BoardCore,
+  getArgs: () => Args,
+  observe?: (changes: Change[]) => void,
+  settings?: SettingsDeps
+) {
   return {
     getStatus: async () => {
       const result = await core.getStatus(getArgs());
@@ -60,15 +92,50 @@ export function makeHandlers(core: BoardCore, getArgs: () => Args, observe?: (ch
       const { repoPath, change } = payload || ({} as Partial<ArchiveArgs>);
       return core.archiveChange(getArgs(), repoPath as string, change as string);
     },
+    getSettings: (): BoardSettings => ({ root: settings ? settings.getRoot() : getArgs().root }),
+    setSettings: (_event: IpcMainInvokeEvent, payload: SetSettingsArgs | undefined): SetSettingsResult => {
+      if (!settings) return { ok: false, error: "settings unavailable" };
+      const res = validateRoot(payload?.root ?? "", settings.isDir ?? dirExists, settings.home);
+      if (!res.ok) return res;
+      settings.write({ root: res.root });
+      settings.setRoot(res.root);
+      return { ok: true, root: res.root };
+    },
   };
 }
 
-export function registerIpc(ipcMain: IpcMain, core: BoardCore, getArgs: () => Args, observe?: (changes: Change[]) => void) {
-  const handlers = makeHandlers(core, getArgs, observe);
+export function registerIpc(
+  ipcMain: IpcMain,
+  core: BoardCore,
+  getArgs: () => Args,
+  observe?: (changes: Change[]) => void,
+  settings?: SettingsDeps
+) {
+  const handlers = makeHandlers(core, getArgs, observe, settings);
   ipcMain.handle(IPC.getStatus, handlers.getStatus);
   ipcMain.handle(IPC.readFile, handlers.readFile);
   ipcMain.handle(IPC.archive, handlers.archive);
+  ipcMain.handle(IPC.getSettings, handlers.getSettings);
+  ipcMain.handle(IPC.setSettings, handlers.setSettings);
   return handlers;
+}
+
+// settings.json lives under the app's userData, overridable via TENTACLES_SETTINGS
+// so the e2e harness can point each run at an isolated temp file.
+export function settingsFilePath(app: App, env: NodeJS.ProcessEnv = process.env): string {
+  return env.TENTACLES_SETTINGS || path.join(app.getPath("userData"), "settings.json");
+}
+
+export function readSettingsFile(filePath: string): Settings {
+  try {
+    return parseSettings(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+export function writeSettingsFile(filePath: string, settings: Settings): void {
+  fs.writeFileSync(filePath, JSON.stringify(settings, null, 2));
 }
 
 // Completion-notification glue: holds the last-seen state across scans and shows
@@ -145,6 +212,7 @@ export interface BootstrapDeps {
   windowOpts: WindowOpts;
   platform?: NodeJS.Platform;
   observe?: (changes: Change[]) => void;
+  settings?: SettingsDeps;
 }
 
 // Ordered startup coordinator. Registers IPC handlers BEFORE any window can call
@@ -161,8 +229,9 @@ export async function bootstrap({
   windowOpts,
   platform = process.platform,
   observe,
+  settings,
 }: BootstrapDeps) {
-  registerIpc(ipcMain, core, getArgs, observe);
+  registerIpc(ipcMain, core, getArgs, observe, settings);
   const windows = makeWindowManager(BrowserWindowCtor, windowOpts);
   let started = false;
 

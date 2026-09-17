@@ -9,12 +9,16 @@ const CHANNELS: ChannelMap = {
   getStatus: "board:getStatus",
   readFile: "board:readFile",
   archive: "board:archive",
+  getSettings: "board:getSettings",
+  setSettings: "board:setSettings",
 };
 
 const api: ElectronAPI = {
   getStatus: () => ipcRenderer.invoke(CHANNELS.getStatus),
   readFile: (filePath) => ipcRenderer.invoke(CHANNELS.readFile, filePath),
   archive: (payload) => ipcRenderer.invoke(CHANNELS.archive, payload),
+  getSettings: () => ipcRenderer.invoke(CHANNELS.getSettings),
+  setSettings: (payload) => ipcRenderer.invoke(CHANNELS.setSettings, payload),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Change, StatusResult } from "../shared/ipc-contract";
 import { RepoGroup } from "./board";
 import { Modal } from "./modal";
+import { SettingsPanel } from "./settings";
 
 const REFRESH_MS = 15000;
 type ThemeChoice = "light" | "dark" | null;
@@ -40,6 +41,7 @@ export default function App() {
   const [removing, setRemoving] = useState<Set<string>>(() => new Set());
   const inFlight = useRef<Set<string>>(new Set());
   const [modal, setModal] = useState({ open: false, title: "", body: "" });
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useLayoutEffect(() => {
     if (theme) document.documentElement.setAttribute("data-theme", theme);
@@ -213,6 +215,9 @@ export default function App() {
       <header>
         <h1>🗂️ OpenSpec Board</h1>
         <div className="meta">
+          <button className="settings-btn" onClick={() => setSettingsOpen(true)} title="Settings">
+            ⚙
+          </button>
           <button className="theme-btn" onClick={toggleTheme} title="Toggle dark / light">
             🌓
           </button>
@@ -222,6 +227,7 @@ export default function App() {
       </header>
       <main>{main}</main>
       <Modal open={modal.open} title={modal.title} body={modal.body} onClose={closeModal} />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={() => void refresh()} />
     </>
   );
 }

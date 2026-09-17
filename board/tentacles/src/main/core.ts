@@ -419,6 +419,69 @@ export function computeNotifications(
   return { next, notifications };
 }
 
+// ---------------------------------------------------------------------------
+// Scan-root settings (pure). The disk read/write of settings.json lives in
+// wiring.ts; these functions own the shape, tilde expansion, validation, and
+// the resolution order.
+// ---------------------------------------------------------------------------
+
+export interface Settings {
+  root?: string;
+}
+
+export function parseSettings(text: string): Settings {
+  try {
+    const o = JSON.parse(text) as unknown;
+    if (o && typeof o === "object" && typeof (o as { root?: unknown }).root === "string") {
+      return { root: (o as { root: string }).root };
+    }
+  } catch {
+    /* fall through to empty */
+  }
+  return {};
+}
+
+export function expandTilde(p: string, home: string = os.homedir()): string {
+  if (p === "~") return home;
+  if (p.startsWith("~/")) return path.join(home, p.slice(2));
+  return p;
+}
+
+export function dirExists(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+export type ValidateResult = { ok: true; root: string } | { ok: false; error: string };
+
+// Validate a user-entered scan root: trim, expand a leading ~, and confirm it
+// resolves to an existing directory. `isDir` is injected so the check is unit
+// testable without touching the real filesystem.
+export function validateRoot(
+  input: string,
+  isDir: (p: string) => boolean = dirExists,
+  home: string = os.homedir()
+): ValidateResult {
+  const raw = (input || "").trim();
+  if (!raw) return { ok: false, error: "Enter a directory path." };
+  const expanded = expandTilde(raw, home);
+  if (!isDir(expanded)) return { ok: false, error: "That directory does not exist." };
+  return { ok: true, root: expanded };
+}
+
+// Resolution order: persisted setting → TENTACLES_ROOT env → ~/Code.
+export function resolveRoot(
+  settings: Settings,
+  env: NodeJS.ProcessEnv = process.env,
+  home: string = os.homedir()
+): string {
+  if (settings.root) return settings.root;
+  return env.TENTACLES_ROOT || path.join(home, "Code");
+}
+
 export async function collect(repos: string[]): Promise<StatusResult> {
   const changes: Change[] = [];
   for (const repo of repos) {
@@ -488,6 +551,11 @@ export default {
   branchCommits,
   shapeChange,
   computeNotifications,
+  parseSettings,
+  expandTilde,
+  dirExists,
+  validateRoot,
+  resolveRoot,
   collect,
   getStatus,
   archiveChange,
