@@ -71,7 +71,7 @@ export interface SettingsDeps {
   home?: string;
 }
 
-// The three privileged operations, each backed by core. `getArgs` is a getter
+// The privileged operations, each backed by core. `getArgs` is a getter
 // so the scan args are read fresh per call. `observe` (optional) is handed each
 // scan's changes so completion notifications can fire main-side. `settings`
 // (optional) backs the getSettings/setSettings channels.

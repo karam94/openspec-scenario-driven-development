@@ -1,4 +1,4 @@
-// Type-only IPC contract: the single source of truth for the three board
+// Type-only IPC contract: the single source of truth for the five board
 // channels and their payload/result shapes. Everything here is a type, so it
 // erases at compile and adds no runtime coupling between the CJS main bundle
 // and the Vite renderer bundle.
