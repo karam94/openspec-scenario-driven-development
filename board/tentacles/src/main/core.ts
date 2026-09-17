@@ -248,15 +248,31 @@ export function prForBranch(repo: string, branch: string | null): Promise<Pr | n
 }
 
 export function branchCommits(repo: string, branch: string | null): Promise<number> {
-  return new Promise((resolve) => {
-    if (!branch) return resolve(0);
-    execFile(
-      "bash",
-      ["-c", `git -C '${repo}' rev-list --count ${branch} ^origin/HEAD 2>/dev/null || git -C '${repo}' rev-list --count ${branch} ^master 2>/dev/null || echo 0`],
-      { timeout: 8000 },
-      (err, stdout) => resolve(err ? 0 : parseInt(String(stdout).trim(), 10) || 0)
-    );
-  });
+  // No shell: git runs via execFile with an argv array, so the repo path and the
+  // branch name (parsed from a scanned repo's tasks.md, i.e. untrusted) are passed
+  // literally and can never be interpreted as shell metacharacters. Falls back
+  // from origin/HEAD to master in TS rather than a shell `||` chain.
+  const countAgainst = (base: string): Promise<number | null> =>
+    new Promise((res) => {
+      execFile(
+        "git",
+        ["-C", repo, "rev-list", "--count", branch as string, `^${base}`],
+        { timeout: 8000 },
+        (err, stdout) => {
+          if (err) return res(null);
+          const n = parseInt(String(stdout).trim(), 10);
+          res(Number.isFinite(n) ? n : null);
+        }
+      );
+    });
+
+  return (async () => {
+    if (!branch) return 0;
+    const primary = await countAgainst("origin/HEAD");
+    if (primary !== null) return primary;
+    const fallback = await countAgainst("master");
+    return fallback ?? 0;
+  })();
 }
 
 export async function shapeChange(repo: string, change: string, status: RawStatus | null): Promise<Change> {
