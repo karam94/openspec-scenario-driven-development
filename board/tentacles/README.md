@@ -17,7 +17,7 @@ through a minimal preload bridge:
 | `wiring.js` | Pure, testable wiring (IPC handler factories, secure window, lifecycle, PATH resolution). Takes Electron objects as parameters so tests need no Electron. |
 | `core.js` | The board scan/status/archive/file logic. |
 | `preload.js` | `contextBridge` exposing exactly `getStatus` / `readFile` / `archive`. |
-| `index.html` | The board UI (copied from `board/index.html`; only the three data calls swapped to the bridge). |
+| `index.html` | The board UI (copied from `board/index.html`; the three data calls swapped to the bridge and the legacy HTTP-only `file://` guard block removed). |
 
 The renderer runs with secure defaults (`contextIsolation: true`,
 `nodeIntegration: false`, `sandbox: true`) — see `docs/adr/0002-secure-renderer-defaults.md`.

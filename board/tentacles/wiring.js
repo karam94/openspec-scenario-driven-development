@@ -45,13 +45,27 @@ function registerIpc(ipcMain, core, getArgs) {
   return handlers;
 }
 
-function createWindow(BrowserWindow, { preloadPath, indexPath }) {
+// External links (the board's PR link uses target="_blank") must open in the
+// system browser, never as an in-app Electron child window. Returns a
+// setWindowOpenHandler callback that opens allowed https URLs externally and
+// always denies creating a child BrowserWindow.
+function makeWindowOpenHandler(openExternal, isAllowed = (u) => /^https:\/\//i.test(String(u))) {
+  return ({ url }) => {
+    if (isAllowed(url) && typeof openExternal === "function") openExternal(url);
+    return { action: "deny" };
+  };
+}
+
+function createWindow(BrowserWindow, { preloadPath, indexPath, openExternal }) {
   const win = new BrowserWindow({
     width: 1200,
     height: 860,
     backgroundColor: "#0a0e1a",
     webPreferences: secureWebPreferences(preloadPath),
   });
+  if (win.webContents && typeof win.webContents.setWindowOpenHandler === "function") {
+    win.webContents.setWindowOpenHandler(makeWindowOpenHandler(openExternal));
+  }
   win.loadFile(indexPath);
   return win;
 }
@@ -120,6 +134,7 @@ module.exports = {
   makeHandlers,
   registerIpc,
   createWindow,
+  makeWindowOpenHandler,
   makeWindowManager,
   bootstrap,
   resolveShellPath,

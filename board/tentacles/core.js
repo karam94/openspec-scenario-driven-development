@@ -26,8 +26,9 @@ const PRUNE = new Set([
 ]);
 const DEFAULT_DEPTH = 30;
 
-// The app has no CLI flags (a double-clicked .app can't take them): scan the
-// same defaults `node board/server.js` uses with no arguments.
+// The app has no CLI flags (a double-clicked .app can't take them). It scans
+// ~/Code at depth 30 — the app's own default. This intentionally diverges from
+// the committed board/server.js (depth 4), which stays frozen; see design.md.
 function defaultArgs() {
   return { repos: [], root: path.join(os.homedir(), "Code"), depth: DEFAULT_DEPTH };
 }

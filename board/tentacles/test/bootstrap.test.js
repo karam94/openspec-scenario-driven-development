@@ -18,6 +18,7 @@ function makeFakeBrowserWindow({ order = [], alwaysEmpty = false } = {}) {
     constructor(opts) {
       this.opts = opts;
       this.loadFile = vi.fn();
+      this.webContents = { setWindowOpenHandler: vi.fn() };
       instances.push(this);
       order.push("window");
     }
