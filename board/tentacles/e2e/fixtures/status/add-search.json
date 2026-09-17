@@ -4,7 +4,7 @@
   "artifactPaths": {
     "grill": { "outputPath": "grill.md", "resolvedOutputPath": "__REPO__/openspec/changes/add-search/grill.md", "existingOutputPaths": ["__REPO__/openspec/changes/add-search/grill.md"] },
     "proposal": { "outputPath": "proposal.md", "resolvedOutputPath": "__REPO__/openspec/changes/add-search/proposal.md", "existingOutputPaths": ["__REPO__/openspec/changes/add-search/proposal.md"] },
-    "specs": { "outputPath": "specs/**/*.md", "resolvedOutputPath": "__REPO__/openspec/changes/add-search/specs", "existingOutputPaths": [] },
+    "specs": { "outputPath": "specs/**/*.md", "resolvedOutputPath": "__REPO__/openspec/changes/add-search/specs/search/spec.md", "existingOutputPaths": ["__REPO__/openspec/changes/add-search/specs/search/spec.md"] },
     "design": { "outputPath": "design.md", "resolvedOutputPath": "__REPO__/openspec/changes/add-search/design.md", "existingOutputPaths": [] },
     "tasks": { "outputPath": "tasks.md", "resolvedOutputPath": "__REPO__/openspec/changes/add-search/tasks.md", "existingOutputPaths": [] }
   }

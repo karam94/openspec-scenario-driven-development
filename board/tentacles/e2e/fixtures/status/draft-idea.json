@@ -1,0 +1,11 @@
+{
+  "schemaName": "atdd-driven",
+  "isPlanningComplete": false,
+  "artifactPaths": {
+    "grill": { "outputPath": "grill.md", "resolvedOutputPath": "__REPO__/openspec/changes/draft-idea/grill.md", "existingOutputPaths": ["__REPO__/openspec/changes/draft-idea/grill.md"] },
+    "proposal": { "outputPath": "proposal.md", "resolvedOutputPath": "__REPO__/openspec/changes/draft-idea/proposal.md", "existingOutputPaths": [] },
+    "specs": { "outputPath": "specs/**/*.md", "resolvedOutputPath": "__REPO__/openspec/changes/draft-idea/specs", "existingOutputPaths": [] },
+    "design": { "outputPath": "design.md", "resolvedOutputPath": "__REPO__/openspec/changes/draft-idea/design.md", "existingOutputPaths": [] },
+    "tasks": { "outputPath": "tasks.md", "resolvedOutputPath": "__REPO__/openspec/changes/draft-idea/tasks.md", "existingOutputPaths": [] }
+  }
+}

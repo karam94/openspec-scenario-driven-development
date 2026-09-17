@@ -261,14 +261,27 @@ export function branchCommits(repo: string, branch: string | null): Promise<numb
 
 export async function shapeChange(repo: string, change: string, status: RawStatus | null): Promise<Change> {
   const artifactPaths = (status && status.artifactPaths) || {};
+  const planningComplete = !!(status && status.isPlanningComplete);
+  const ownExists = (id: PhaseId): boolean =>
+    ((artifactPaths[id]?.existingOutputPaths || []).filter(Boolean) as string[]).length > 0;
+
+  // A planning phase is complete when the NEXT applicable artifact exists — not
+  // when its own artifact exists (grill.md is written mid-interview, so keying on
+  // it marks grill done while grilling is still ongoing). The last applicable
+  // planning phase has no successor, so it falls back to isPlanningComplete. See
+  // ADR-0004.
+  const applicableIds = PHASES.filter((id) => id in artifactPaths);
   const phases: Phase[] = PHASES.map((id) => {
     const ap = artifactPaths[id] || {};
     const existing = (ap.existingOutputPaths || []).filter(Boolean) as string[];
     const applicable = id in artifactPaths;
+    const pos = applicableIds.indexOf(id);
+    const nextId = pos >= 0 ? applicableIds[pos + 1] : undefined;
+    const done = !applicable ? false : nextId ? ownExists(nextId) : planningComplete;
     return {
       id,
       applicable,
-      done: existing.length > 0,
+      done,
       file: existing[0] || (ap.resolvedOutputPath ?? null),
     };
   });
@@ -279,7 +292,6 @@ export async function shapeChange(repo: string, change: string, status: RawStatu
   }
 
   const prog = taskProgress(repo, change);
-  const planningComplete = !!(status && status.isPlanningComplete);
 
   const type = changeType(repo, change);
   const branch = changeBranch(repo, change);
