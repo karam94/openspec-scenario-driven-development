@@ -1,7 +1,7 @@
 {
   "name": "code-reviewer",
   "description": "Independent read-only reviewer for a completed OpenSpec implementation.",
-  "model": "gpt-5.6-sol",
+  "model": "gpt-5.6-terra",
   "tools": [
     "execute_bash",
     "fs_read",
