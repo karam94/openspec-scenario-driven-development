@@ -1,10 +1,10 @@
 /*
  * OpenSpec Board — core logic.
  *
- * Forked from board/server.js at the introduction of the Electron app
- * (change: board-electron-app). These are the board's discrete functions with
- * the HTTP server, browser-open, and CLI arg-parsing stripped out — the
- * Electron main process invokes them directly and exposes them over IPC.
+ * Forked from board/server.js at the introduction of the Electron app. These
+ * are the board's discrete functions with the HTTP server, browser-open, and
+ * CLI arg-parsing stripped out — the Electron main process invokes them
+ * directly and exposes them over IPC.
  *
  * Zero runtime dependencies (node:child_process + node:fs + node:path + node:os).
  * The two guards from the HTTP board (archive scoped to a discovered repo + real
@@ -12,27 +12,63 @@
  * archiveChange() and readArtifact() so a renderer bug cannot bypass them.
  */
 
-const { execFile } = require("node:child_process");
-const fs = require("node:fs");
-const path = require("node:path");
-const os = require("node:os");
+import { execFile } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import type {
+  Apply,
+  ArchiveResult,
+  Change,
+  Phase,
+  PhaseId,
+  Pr,
+  ReadFileResult,
+  StatusResult,
+} from "../shared/ipc-contract";
 
-const PHASES = ["grill", "proposal", "specs", "design", "tasks"];
+export interface Args {
+  repos: string[];
+  root: string;
+  depth: number;
+}
 
-const PRUNE = new Set([
+type Archiver = (repoPath: string, change: string) => Promise<ArchiveResult>;
+
+// The untrusted shapes the external CLIs emit — declared, then cast at the parse
+// site. Optional-chaining fallbacks treat every field as possibly absent.
+interface RawArtifactPath {
+  existingOutputPaths?: Array<string | null>;
+  resolvedOutputPath?: string | null;
+}
+interface RawStatus {
+  artifactPaths?: Record<string, RawArtifactPath>;
+  isPlanningComplete?: boolean;
+  schemaName?: string;
+}
+interface RawPr {
+  url: string;
+  state: string;
+  reviewDecision?: string;
+  isDraft?: boolean;
+}
+
+export const PHASES: PhaseId[] = ["grill", "proposal", "specs", "design", "tasks"];
+
+export const PRUNE = new Set([
   "node_modules", ".git", ".hg", ".svn", "dist", "build", "out", "target",
   ".venv", "venv", "__pycache__", ".cache", ".next", ".turbo", "coverage",
   "vendor", ".idea", ".vscode", "Pods", "DerivedData",
 ]);
-const DEFAULT_DEPTH = 30;
+export const DEFAULT_DEPTH = 30;
 
 // The app has no CLI flags (a double-clicked .app can't take them). It scans
-// ~/Code at depth 30 — the same default as board/server.js; see design.md.
-function defaultArgs() {
+// ~/Code at depth 30 — the same default as board/server.js.
+export function defaultArgs(): Args {
   return { repos: [], root: path.join(os.homedir(), "Code"), depth: DEFAULT_DEPTH };
 }
 
-function isRepo(dir) {
+export function isRepo(dir: string): boolean {
   try {
     return fs.statSync(path.join(dir, "openspec", "changes")).isDirectory();
   } catch {
@@ -40,12 +76,15 @@ function isRepo(dir) {
   }
 }
 
-function scanRoot(root, maxDepth) {
-  const found = [];
-  function walk(dir, depth) {
+export function scanRoot(root: string, maxDepth: number): string[] {
+  const found: string[] = [];
+  function walk(dir: string, depth: number): void {
     if (depth > maxDepth) return;
-    if (isRepo(dir)) { found.push(dir); return; }
-    let entries = [];
+    if (isRepo(dir)) {
+      found.push(dir);
+      return;
+    }
+    let entries: fs.Dirent[] = [];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch {
@@ -61,14 +100,14 @@ function scanRoot(root, maxDepth) {
   return found;
 }
 
-function discoverRepos(args) {
+export function discoverRepos(args: Args): string[] {
   if (args.repos.length) return args.repos.filter(isRepo);
   return scanRoot(args.root, args.depth);
 }
 
-function listChanges(repo) {
+export function listChanges(repo: string): string[] {
   const dir = path.join(repo, "openspec", "changes");
-  let names = [];
+  let names: string[] = [];
   try {
     names = fs
       .readdirSync(dir, { withFileTypes: true })
@@ -80,7 +119,7 @@ function listChanges(repo) {
   return names;
 }
 
-function runStatus(repo, change) {
+export function runStatus(repo: string, change: string): Promise<RawStatus | null> {
   return new Promise((resolve) => {
     execFile(
       "openspec",
@@ -89,7 +128,7 @@ function runStatus(repo, change) {
       (err, stdout) => {
         if (err && !stdout) return resolve(null);
         try {
-          resolve(JSON.parse(stdout));
+          resolve(JSON.parse(String(stdout)) as RawStatus);
         } catch {
           resolve(null);
         }
@@ -98,13 +137,13 @@ function runStatus(repo, change) {
   });
 }
 
-function runArchive(repo, change) {
+export function runArchive(repo: string, change: string): Promise<ArchiveResult> {
   return new Promise((resolve) => {
     execFile(
       "openspec",
       ["archive", change, "--yes", "--skip-specs", "--json"],
       { cwd: repo, timeout: 30000, maxBuffer: 8 * 1024 * 1024 },
-      (err, stdout, stderr) => {
+      (err, _stdout, stderr) => {
         if (err) return resolve({ ok: false, error: (stderr || String(err)).slice(0, 400) });
         resolve({ ok: true });
       }
@@ -112,15 +151,23 @@ function runArchive(repo, change) {
   });
 }
 
-function taskProgress(repo, change) {
+interface TaskProgress {
+  total: number;
+  done: number;
+  reviewTaskDone: boolean | null;
+}
+
+export function taskProgress(repo: string, change: string): TaskProgress {
   const p = path.join(repo, "openspec", "changes", change, "tasks.md");
   try {
     const text = fs.readFileSync(p, "utf8");
     const lines = text.split("\n").filter((l) => /^\s*-\s*\[[ xX]\]/.test(l));
-    const ticked = (l) => /^\s*-\s*\[[xX]\]/.test(l);
+    const ticked = (l: string): boolean => /^\s*-\s*\[[xX]\]/.test(l);
     const reviewLine = lines.find((l) => /code[- ]?review|review gate|independent .*review/i.test(l));
     const reviewTaskDone = reviewLine ? ticked(reviewLine) : null;
-    const implLines = lines.filter((l) => !/code[- ]?review|review gate|independent .*review|open the pr/i.test(l));
+    const implLines = lines.filter(
+      (l) => !/code[- ]?review|review gate|independent .*review|open the pr/i.test(l)
+    );
     return {
       total: implLines.length,
       done: implLines.filter(ticked).length,
@@ -131,7 +178,7 @@ function taskProgress(repo, change) {
   }
 }
 
-function changeType(repo, change) {
+export function changeType(repo: string, change: string): "refactor" | "feature" {
   const p = path.join(repo, "openspec", "changes", change, "proposal.md");
   let text = "";
   try {
@@ -162,19 +209,19 @@ function changeType(repo, change) {
   return /^refactor[-/]/i.test(change) ? "refactor" : "feature";
 }
 
-function changeBranch(repo, change) {
+export function changeBranch(repo: string, change: string): string | null {
   const p = path.join(repo, "openspec", "changes", change, "tasks.md");
   try {
     const text = fs.readFileSync(p, "utf8");
     const m = text.match(/branch\s*[`'"]([^`'"\s]+)[`'"]/i);
-    if (m) return m[1];
+    if (m) return m[1] ?? null;
   } catch {
     /* none */
   }
   return null;
 }
 
-function prForBranch(repo, branch) {
+export function prForBranch(repo: string, branch: string | null): Promise<Pr | null> {
   return new Promise((resolve) => {
     if (!branch) return resolve(null);
     execFile(
@@ -184,7 +231,7 @@ function prForBranch(repo, branch) {
       (err, stdout) => {
         if (err || !stdout) return resolve(null);
         try {
-          const arr = JSON.parse(stdout);
+          const arr = JSON.parse(String(stdout)) as RawPr[];
           const p = arr[0];
           resolve(p ? { url: p.url, state: p.state, reviewDecision: p.reviewDecision || "", isDraft: !!p.isDraft } : null);
         } catch {
@@ -195,7 +242,7 @@ function prForBranch(repo, branch) {
   });
 }
 
-function branchCommits(repo, branch) {
+export function branchCommits(repo: string, branch: string | null): Promise<number> {
   return new Promise((resolve) => {
     if (!branch) return resolve(0);
     execFile(
@@ -207,11 +254,11 @@ function branchCommits(repo, branch) {
   });
 }
 
-async function shapeChange(repo, change, status) {
+export async function shapeChange(repo: string, change: string, status: RawStatus | null): Promise<Change> {
   const artifactPaths = (status && status.artifactPaths) || {};
-  const phases = PHASES.map((id) => {
+  const phases: Phase[] = PHASES.map((id) => {
     const ap = artifactPaths[id] || {};
-    const existing = (ap.existingOutputPaths || []).filter(Boolean);
+    const existing = (ap.existingOutputPaths || []).filter(Boolean) as string[];
     const applicable = id in artifactPaths;
     return {
       id,
@@ -221,7 +268,10 @@ async function shapeChange(repo, change, status) {
     };
   });
   const nextIdx = phases.findIndex((p) => p.applicable && !p.done);
-  if (nextIdx !== -1) phases[nextIdx].inProgress = true;
+  if (nextIdx !== -1) {
+    const next = phases[nextIdx];
+    if (next) next.inProgress = true;
+  }
 
   const prog = taskProgress(repo, change);
   const planningComplete = !!(status && status.isPlanningComplete);
@@ -230,10 +280,10 @@ async function shapeChange(repo, change, status) {
   const branch = changeBranch(repo, change);
   const pr = planningComplete ? await prForBranch(repo, branch) : null;
 
-  let apply = { total: prog.total, done: prog.done, source: "tasks.md" };
+  let apply: Apply = { total: prog.total, done: prog.done, source: "tasks.md", file: null };
   if (planningComplete && prog.total > 0 && prog.done === 0) {
     const commits = await branchCommits(repo, branch);
-    if (commits > 0) apply = { total: prog.total, done: null, commits, source: "commits" };
+    if (commits > 0) apply = { total: prog.total, done: null, commits, source: "commits", file: null };
   }
   const applyDoneByTasks =
     (apply.source === "tasks.md" && apply.total > 0 && apply.done === apply.total) ||
@@ -241,7 +291,7 @@ async function shapeChange(repo, change, status) {
 
   const ghApproved = pr && (pr.state === "MERGED" || pr.reviewDecision === "APPROVED");
   const reviewEntered = prog.reviewTaskDone === true || ghApproved || !!pr;
-  let review = "none";
+  let review: "none" | "pending" | "passed" = "none";
   if (prog.reviewTaskDone === true || ghApproved) review = "passed";
   else if (applyDoneByTasks || pr) review = "pending";
   const reviewPassed = review === "passed";
@@ -271,8 +321,8 @@ async function shapeChange(repo, change, status) {
   };
 }
 
-async function collect(repos) {
-  const changes = [];
+export async function collect(repos: string[]): Promise<StatusResult> {
+  const changes: Change[] = [];
   for (const repo of repos) {
     for (const change of listChanges(repo)) {
       const status = await runStatus(repo, change);
@@ -283,7 +333,7 @@ async function collect(repos) {
 }
 
 // The board's full status payload for the current scan defaults.
-async function getStatus(args = defaultArgs()) {
+export async function getStatus(args: Args = defaultArgs()): Promise<StatusResult> {
   const repos = discoverRepos(args);
   try {
     return await collect(repos);
@@ -294,7 +344,12 @@ async function getStatus(args = defaultArgs()) {
 
 // Guarded archive: only for a currently-discovered repo AND a real change.
 // `archiver` is injectable so the guard is testable without shelling out.
-async function archiveChange(args, repoPath, change, archiver = runArchive) {
+export async function archiveChange(
+  args: Args,
+  repoPath: string,
+  change: string,
+  archiver: Archiver = runArchive
+): Promise<ArchiveResult> {
   const repos = discoverRepos(args);
   const okRepo = repos.some((r) => path.resolve(r) === path.resolve(repoPath || ""));
   if (!okRepo || !change || !listChanges(repoPath).includes(change)) {
@@ -304,7 +359,7 @@ async function archiveChange(args, repoPath, change, archiver = runArchive) {
 }
 
 // Guarded read: only a path resolving inside a currently-discovered repo.
-function readArtifact(args, fp) {
+export function readArtifact(args: Args, fp: string): ReadFileResult {
   const repos = discoverRepos(args);
   const allowed = repos.some((r) => path.resolve(String(fp || "")).startsWith(path.resolve(r) + path.sep));
   if (!allowed) {
@@ -317,7 +372,7 @@ function readArtifact(args, fp) {
   }
 }
 
-module.exports = {
+export default {
   PHASES,
   PRUNE,
   DEFAULT_DEPTH,

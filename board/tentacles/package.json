@@ -5,27 +5,40 @@
   "private": true,
   "description": "Native macOS Electron app for the OpenSpec Board (forked from board/server.js).",
   "author": "OpenSpec Board",
-  "main": "main.js",
+  "main": "build/main/main.js",
   "scripts": {
+    "compile": "tsc -p tsconfig.main.json && vite build",
+    "prestart": "npm run compile",
     "start": "electron .",
+    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "electron-builder --mac"
+    "build": "npm run compile && electron-builder --mac"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/node": "26.5.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "4.7.0",
     "electron": "32.3.3",
     "electron-builder": "25.1.8",
+    "jsdom": "29.1.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "7.0.2",
+    "vite": "6.4.3",
     "vitest": "2.1.9"
   },
   "build": {
     "appId": "dev.openspec.board",
     "productName": "OpenSpec Board",
     "files": [
-      "main.js",
-      "wiring.js",
-      "core.js",
-      "preload.js",
-      "index.html"
+      "build/main/**",
+      "build/preload/**",
+      "build/renderer/**"
     ],
     "directories": {
       "output": "dist"

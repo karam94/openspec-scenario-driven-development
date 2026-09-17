@@ -2,10 +2,11 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vites
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import core from "../core.js";
+import core, { type Args } from "./core";
+import type { ArchiveResult } from "../shared/ipc-contract";
 
-let repo;
-let archiver;
+let repo: string;
+let archiver: (repoPath: string, change: string) => Promise<ArchiveResult>;
 
 beforeAll(() => {
   repo = fs.mkdtempSync(path.join(os.tmpdir(), "board-arch-"));
@@ -14,11 +15,11 @@ beforeAll(() => {
 
 afterAll(() => fs.rmSync(repo, { recursive: true, force: true }));
 beforeEach(() => {
-  archiver = vi.fn(async () => ({ ok: true }));
+  archiver = vi.fn(async (): Promise<ArchiveResult> => ({ ok: true }));
 });
 
 describe("archive guard (core.archiveChange)", () => {
-  const args = () => ({ repos: [repo], root: "/nonexistent", depth: 1 });
+  const args = (): Args => ({ repos: [repo], root: "/nonexistent", depth: 1 });
 
   it("archives a real change in a discovered repo and returns {ok:true}", async () => {
     const res = await core.archiveChange(args(), repo, "demo", archiver);
