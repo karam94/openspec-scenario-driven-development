@@ -56,15 +56,40 @@ function createWindow(BrowserWindow, { preloadPath, indexPath }) {
   return win;
 }
 
-function wireLifecycle({ app, BrowserWindow, createWin, platform = process.platform }) {
-  // macOS: closing the last window keeps the app resident in the Dock.
+// A single-window manager: ensure() creates the window only when none is open,
+// so repeated calls never open a second one.
+function makeWindowManager(BrowserWindow, opts) {
+  return {
+    ensure() {
+      const open = BrowserWindow.getAllWindows ? BrowserWindow.getAllWindows() : [];
+      if (open.length > 0) return open[0];
+      return createWindow(BrowserWindow, opts);
+    },
+  };
+}
+
+// Ordered startup coordinator. Registers IPC handlers BEFORE any window can call
+// a channel, resolves the login-shell PATH BEFORE the first window opens (so its
+// first getStatus sees the real PATH), then opens exactly one window. `activate`
+// is ignored until startup completes and is idempotent thereafter, so a
+// first-launch `activate` firing during PATH resolution cannot open a premature
+// or duplicate window.
+async function bootstrap({ app, BrowserWindow, ipcMain, core, getArgs, resolvePath, windowOpts, platform = process.platform }) {
+  registerIpc(ipcMain, core, getArgs);
+  const windows = makeWindowManager(BrowserWindow, windowOpts);
+  let started = false;
+
   app.on("window-all-closed", () => {
     if (platform !== "darwin") app.quit();
   });
-  // Re-create a window when the app is activated with none open.
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWin();
+    if (started) windows.ensure();
   });
+
+  await resolvePath();
+  windows.ensure();
+  started = true;
+  return windows;
 }
 
 // Merge a resolved login-shell PATH into `env` so CLIs resolve. Returns the
@@ -95,7 +120,8 @@ module.exports = {
   makeHandlers,
   registerIpc,
   createWindow,
-  wireLifecycle,
+  makeWindowManager,
+  bootstrap,
   resolveShellPath,
   loginShellPath,
 };

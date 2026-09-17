@@ -1,26 +1,25 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("node:path");
 const core = require("./core");
-const {
-  registerIpc,
-  createWindow,
-  wireLifecycle,
-  resolveShellPath,
-  loginShellPath,
-} = require("./wiring");
+const { bootstrap, resolveShellPath, loginShellPath } = require("./wiring");
 
 const args = core.defaultArgs();
-const preloadPath = path.join(__dirname, "preload.js");
-const indexPath = path.join(__dirname, "index.html");
-const createWin = () => createWindow(BrowserWindow, { preloadPath, indexPath });
+const windowOpts = {
+  preloadPath: path.join(__dirname, "preload.js"),
+  indexPath: path.join(__dirname, "index.html"),
+};
 
-async function start() {
-  // Resolve the real login-shell PATH BEFORE any CLI (openspec/gh) is invoked,
-  // so a Finder-launched .app finds them instead of rendering empty.
-  await resolveShellPath(loginShellPath, process.env);
-  registerIpc(ipcMain, core, () => args);
-  createWin();
-}
-
-app.whenReady().then(start);
-wireLifecycle({ app, BrowserWindow, createWin });
+// bootstrap registers IPC first, resolves the login-shell PATH before the first
+// window (so openspec/gh resolve), opens exactly one window, and only then arms
+// `activate` — so first-launch activation cannot race startup into a second window.
+app.whenReady().then(() =>
+  bootstrap({
+    app,
+    BrowserWindow,
+    ipcMain,
+    core,
+    getArgs: () => args,
+    resolvePath: () => resolveShellPath(loginShellPath, process.env),
+    windowOpts,
+  })
+);

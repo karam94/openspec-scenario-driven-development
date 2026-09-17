@@ -119,23 +119,9 @@ function toggleTheme(){
   localStorage.setItem('osb-theme', next);
 }
 
-// Guard: this page MUST be served over HTTP by board/server.js. Opened directly
-// as a file:// URL, fetch('/api/status') resolves to file:///api/status and dies
-// with a CORS error. Detect that and show how to run it, instead of failing silently.
-if (location.protocol === 'file:') {
-  document.getElementById('root').innerHTML =
-    '<div class="empty" style="line-height:1.7">' +
-    '<div style="font-size:2rem">🚫</div>' +
-    "<p><strong>Don't open this file directly.</strong></p>" +
-    '<p>The board needs its server (it runs the <code>openspec</code> CLI for you).<br>' +
-    'A browser can\'t do that from a <code>file://</code> page.</p>' +
-    '<p style="margin-top:14px">Start it and open the URL it prints:</p>' +
-    '<pre style="display:inline-block;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:ui-monospace,monospace">node board/server.js\n# → http://127.0.0.1:7788</pre>' +
-    '</div>';
-  document.getElementById('status').textContent = 'not served — open via the server URL';
-  document.getElementById('livedot').classList.add('stale');
-  throw new Error('file:// — must be served over HTTP by board/server.js');
-}
+// The Electron app loads this page from disk (BrowserWindow.loadFile), so it runs
+// under the file: protocol by design. Data reaches the renderer via the
+// window.electronAPI preload bridge (getStatus / readFile / archive), not fetch.
 
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
