@@ -1,16 +1,29 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { changeBranch } from "./core";
 
+const created: string[] = [];
+
 function repoWithTasks(content: string): string {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "cb-"));
+  created.push(repo);
   const dir = path.join(repo, "openspec", "changes", "c");
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "tasks.md"), content);
   return repo;
 }
+
+afterAll(() => {
+  for (const repo of created) {
+    try {
+      fs.rmSync(repo, { recursive: true, force: true });
+    } catch {
+      /* best effort */
+    }
+  }
+});
 
 describe("changeBranch reads the working branch from tasks.md", () => {
   it("matches the labelled 'Branch: `x`' form", () => {
@@ -28,8 +41,15 @@ describe("changeBranch reads the working branch from tasks.md", () => {
     expect(changeBranch(repo, "c")).toBe("feat/thing");
   });
 
-  it("returns null when no branch is declared", () => {
-    const repo = repoWithTasks("# Tasks\n\nnothing to see here\n");
+  it("ignores unrelated 'branch' prose and only matches the declaration line", () => {
+    const repo = repoWithTasks(
+      "# Tasks\n\nCompare against branch: \"main\" during review.\nUse the release subbranch: `nope`.\n\nBranch: `feat/real`\n"
+    );
+    expect(changeBranch(repo, "c")).toBe("feat/real");
+  });
+
+  it("returns null when no branch is declared (even with stray branch prose)", () => {
+    const repo = repoWithTasks("# Tasks\n\nrebase onto the main branch when ready\n");
     expect(changeBranch(repo, "c")).toBeNull();
   });
 });
