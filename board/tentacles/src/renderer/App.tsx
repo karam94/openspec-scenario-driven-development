@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Change, StatusResult } from "../shared/ipc-contract";
 import { RepoGroup } from "./board";
 import { Modal } from "./modal";
@@ -28,6 +28,9 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeChoice>(() => readSavedTheme());
   const [collapsed, setCollapsed] = useState<Set<string>>(() => readCollapsed());
   const [archived, setArchived] = useState<Set<string>>(() => new Set());
+  const [archiving, setArchiving] = useState<Set<string>>(() => new Set());
+  const [removing, setRemoving] = useState<Set<string>>(() => new Set());
+  const inFlight = useRef<Set<string>>(new Set());
   const [modal, setModal] = useState({ open: false, title: "", body: "" });
 
   useLayoutEffect(() => {
@@ -82,20 +85,44 @@ export default function App() {
 
   const onArchive = useCallback(
     async (c: Change) => {
+      const k = keyOf(c);
+      if (inFlight.current.has(k)) return; // guard against a duplicate submission
       const confirmed = window.confirm(
         `Archive "${c.change}"?\n\nThis runs \`openspec archive\` (moves it to changes/archive/). Reversible on disk.`
       );
       if (!confirmed) return;
+      inFlight.current.add(k);
+      setArchiving((prev) => new Set(prev).add(k));
+      const clearArchiving = () =>
+        setArchiving((prev) => {
+          const next = new Set(prev);
+          next.delete(k);
+          return next;
+        });
       try {
         const d = await window.electronAPI.archive({ repoPath: c.repoPath, change: c.change });
         if (d.ok) {
-          setArchived((prev) => new Set(prev).add(keyOf(c)));
-          void refresh();
+          clearArchiving();
+          setRemoving((prev) => new Set(prev).add(k));
+          setTimeout(() => {
+            inFlight.current.delete(k);
+            setArchived((prev) => new Set(prev).add(k));
+            setRemoving((prev) => {
+              const next = new Set(prev);
+              next.delete(k);
+              return next;
+            });
+            void refresh();
+          }, 320);
         } else {
           window.alert("Archive failed: " + (d.error || "unknown"));
+          inFlight.current.delete(k);
+          clearArchiving();
         }
       } catch (e) {
         window.alert("Archive failed: " + e);
+        inFlight.current.delete(k);
+        clearArchiving();
       }
     },
     [refresh]
@@ -149,6 +176,8 @@ export default function App() {
         onToggle={toggleRepo}
         openFile={openFile}
         onArchive={onArchive}
+        archivingKeys={archiving}
+        removingKeys={removing}
       />
     ));
   }

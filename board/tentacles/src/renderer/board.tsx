@@ -145,7 +145,9 @@ export function ChangeCard({
   c,
   openFile,
   onArchive,
-}: { c: Change; onArchive: (c: Change) => void } & WithOpen) {
+  busy,
+  removing,
+}: { c: Change; onArchive: (c: Change) => void; busy: boolean; removing: boolean } & WithOpen) {
   const badge = c.complete ? (
     <span className="badge complete">COMPLETE</span>
   ) : c.review === "pending" ? (
@@ -162,14 +164,14 @@ export function ChangeCard({
       <span className="badge type-feature">FEATURE</span>
     );
   return (
-    <div className="change">
+    <div className={`change ${removing ? "archiving" : ""}`}>
       <div className="change-head">
         <span className="cname">{c.change}</span>
         {typeBadge}
         {badge}
         <span className="crepo">{c.schema}</span>
-        <button className="archive-btn" onClick={() => onArchive(c)}>
-          Archive
+        <button className="archive-btn" onClick={() => onArchive(c)} disabled={busy}>
+          {busy ? "Archiving…" : "Archive"}
         </button>
       </div>
       <div className="chain">
@@ -198,12 +200,16 @@ export function RepoGroup({
   onToggle,
   openFile,
   onArchive,
+  archivingKeys,
+  removingKeys,
 }: {
   repo: string;
   list: Change[];
   collapsed: boolean;
   onToggle: (repo: string) => void;
   onArchive: (c: Change) => void;
+  archivingKeys: Set<string>;
+  removingKeys: Set<string>;
 } & WithOpen) {
   const done = list.filter((c) => c.complete).length;
   return (
@@ -216,9 +222,19 @@ export function RepoGroup({
         </span>
       </div>
       <div className="repo-body">
-        {list.map((c) => (
-          <ChangeCard key={`${c.repoPath}\u0000${c.change}`} c={c} openFile={openFile} onArchive={onArchive} />
-        ))}
+        {list.map((c) => {
+          const k = `${c.repoPath}\u0000${c.change}`;
+          return (
+            <ChangeCard
+              key={k}
+              c={c}
+              openFile={openFile}
+              onArchive={onArchive}
+              busy={archivingKeys.has(k)}
+              removing={removingKeys.has(k)}
+            />
+          );
+        })}
       </div>
     </div>
   );
