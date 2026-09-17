@@ -50,5 +50,9 @@
       "category": "public.app-category.developer-tools",
       "identity": null
     }
+  },
+  "dependencies": {
+    "react-markdown": "9.0.1",
+    "remark-gfm": "4.0.0"
   }
 }
