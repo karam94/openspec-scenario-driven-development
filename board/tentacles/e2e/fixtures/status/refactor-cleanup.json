@@ -1,0 +1,11 @@
+{
+  "schemaName": "atdd-driven",
+  "isPlanningComplete": true,
+  "artifactPaths": {
+    "grill": { "outputPath": "grill.md", "resolvedOutputPath": "__REPO__/openspec/changes/refactor-cleanup/grill.md", "existingOutputPaths": ["__REPO__/openspec/changes/refactor-cleanup/grill.md"] },
+    "proposal": { "outputPath": "proposal.md", "resolvedOutputPath": "__REPO__/openspec/changes/refactor-cleanup/proposal.md", "existingOutputPaths": ["__REPO__/openspec/changes/refactor-cleanup/proposal.md"] },
+    "specs": { "outputPath": "specs/**/*.md", "resolvedOutputPath": "__REPO__/openspec/changes/refactor-cleanup/specs/main/spec.md", "existingOutputPaths": ["__REPO__/openspec/changes/refactor-cleanup/specs/main/spec.md"] },
+    "design": { "outputPath": "design.md", "resolvedOutputPath": "__REPO__/openspec/changes/refactor-cleanup/design.md", "existingOutputPaths": ["__REPO__/openspec/changes/refactor-cleanup/design.md"] },
+    "tasks": { "outputPath": "tasks.md", "resolvedOutputPath": "__REPO__/openspec/changes/refactor-cleanup/tasks.md", "existingOutputPaths": ["__REPO__/openspec/changes/refactor-cleanup/tasks.md"] }
+  }
+}

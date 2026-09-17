@@ -1,0 +1,22 @@
+#!/bin/bash
+# e2e stub for `gh`. Returns a canned PR only for the PR-bearing fixture branch
+# (feat/ship-export); an empty array otherwise, matching `gh pr list --json`.
+set -euo pipefail
+
+LOG="${E2E_STUB_LOG:-/dev/null}"
+echo "gh $*" >> "$LOG"
+
+head=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --head) head="${2:-}"; shift 2 || shift;;
+    *) shift;;
+  esac
+done
+
+if [ "$head" = "feat/ship-export" ]; then
+  echo '[{"url":"https://github.com/acme/repo-alpha/pull/42","state":"OPEN","reviewDecision":"REVIEW_REQUIRED","isDraft":false}]'
+else
+  echo '[]'
+fi
+exit 0

@@ -17,6 +17,12 @@ const windowOpts = {
 // bootstrap registers IPC first, resolves the login-shell PATH before the first
 // window (so openspec/gh resolve), opens exactly one window, and only then arms
 // `activate` — so first-launch activation cannot race startup into a second window.
+// Under TENTACLES_E2E, PATH resolution is a no-op so an injected stub-bin PATH
+// (the e2e harness) survives instead of being overwritten by the login shell's.
+const resolvePath = process.env.TENTACLES_E2E
+  ? () => Promise.resolve()
+  : () => resolveShellPath(loginShellPath, process.env);
+
 app.whenReady().then(() =>
   bootstrap({
     app,
@@ -24,7 +30,7 @@ app.whenReady().then(() =>
     ipcMain,
     core,
     getArgs: () => args,
-    resolvePath: () => resolveShellPath(loginShellPath, process.env),
+    resolvePath,
     windowOpts,
   })
 );

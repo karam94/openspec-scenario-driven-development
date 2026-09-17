@@ -36,6 +36,25 @@ npm test        # Vitest — unit tests for the main-process seams
 npm start       # launch the app in development
 ```
 
+## Pre-ship smoke gate (`npm run e2e`)
+
+```bash
+npm run e2e     # compile, then launch the REAL app and drive it with Playwright
+```
+
+`npm run e2e` boots the compiled app via Playwright's `_electron.launch` and
+drives it end-to-end against committed fixtures + stub `openspec`/`gh` CLIs —
+single secure window, seeded board render, phase chain + badges, PR link opening
+externally, archive round-trip, file modal, theme toggle, and auto-refresh. A
+green run replaces the manual smoke test of the running app after any change.
+
+Run it on a normal macOS login session (Electron launches under its OS sandbox as
+a user would). On a restricted/headless host (CI, a sandboxed shell) where the OS
+sandbox can't initialise, set `E2E_NO_SANDBOX=1 npm run e2e`. The suite is a
+local pre-ship gate; no CI runs it yet. What it does **not** cover (still a manual
+check): real `openspec`/`gh` output drift, real login-shell PATH resolution, and
+DMG/Gatekeeper packaging — those stay on the unit tests or a release-time check.
+
 ## Build a macOS app
 
 ```bash
@@ -48,5 +67,6 @@ requires right-click → Open (once). Code signing + notarization is future scop
 ## Scope
 
 Scans the defaults (`~/Code`, depth 30) with no in-app settings. Notifications,
-tray/menu-bar, native open-in-editor, an in-app root/depth picker, signing, and a
-Playwright-Electron E2E harness are all future scope.
+tray/menu-bar, native open-in-editor, an in-app root/depth picker, and signing
+are all future scope. (The Playwright-Electron E2E harness — `npm run e2e` — is
+now shipped; see the pre-ship smoke gate above.)
