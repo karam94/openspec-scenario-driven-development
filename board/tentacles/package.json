@@ -1,0 +1,38 @@
+{
+  "name": "openspec-board-tentacles",
+  "productName": "OpenSpec Board",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native macOS Electron app for the OpenSpec Board (forked from board/server.js).",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^25.0.0",
+    "vitest": "^2.1.0"
+  },
+  "build": {
+    "appId": "dev.openspec.board",
+    "productName": "OpenSpec Board",
+    "files": [
+      "main.js",
+      "wiring.js",
+      "core.js",
+      "preload.js",
+      "index.html"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.developer-tools",
+      "identity": null
+    }
+  }
+}
