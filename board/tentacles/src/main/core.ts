@@ -278,11 +278,12 @@ export async function shapeChange(repo: string, change: string, status: RawStatu
     const pos = applicableIds.indexOf(id);
     const nextId = pos >= 0 ? applicableIds[pos + 1] : undefined;
     const done = !applicable ? false : nextId ? ownExists(nextId) : planningComplete;
+    const files = existing.length ? existing : ap.resolvedOutputPath ? [ap.resolvedOutputPath] : [];
     return {
       id,
       applicable,
       done,
-      file: existing[0] || (ap.resolvedOutputPath ?? null),
+      files,
     };
   });
   const nextIdx = phases.findIndex((p) => p.applicable && !p.done);

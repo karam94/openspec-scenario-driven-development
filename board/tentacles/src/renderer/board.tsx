@@ -2,10 +2,10 @@ import { Fragment } from "react";
 import type { Change, Phase } from "../shared/ipc-contract";
 
 interface WithOpen {
-  openFile: (file: string) => void;
+  openArtifacts: (files: string[]) => void;
 }
 
-function PhaseNode({ p, openFile }: { p: Phase } & WithOpen) {
+function PhaseNode({ p, openArtifacts }: { p: Phase } & WithOpen) {
   if (!p.applicable) {
     return (
       <div className="node na">
@@ -26,7 +26,7 @@ function PhaseNode({ p, openFile }: { p: Phase } & WithOpen) {
     );
   }
   const cls = p.done ? "done clickable" : "pending";
-  const onClick = p.done && p.file ? () => openFile(p.file as string) : undefined;
+  const onClick = p.done && p.files.length ? () => openArtifacts(p.files) : undefined;
   return (
     <div className={`node ${cls}`} onClick={onClick}>
       <div className="phase">{p.id}</div>
@@ -35,7 +35,7 @@ function PhaseNode({ p, openFile }: { p: Phase } & WithOpen) {
   );
 }
 
-function ApplyNode({ c, openFile }: { c: Change } & WithOpen) {
+function ApplyNode({ c, openArtifacts }: { c: Change } & WithOpen) {
   const a = c.apply;
   const spin = c.applying ? <span className="spinner" /> : null;
   let label: React.ReactNode;
@@ -55,7 +55,7 @@ function ApplyNode({ c, openFile }: { c: Change } & WithOpen) {
     );
   }
   const cls = c.applyDone ? "done clickable" : c.applying ? "progress" : "pending";
-  const onClick = a.file ? () => openFile(a.file as string) : undefined;
+  const onClick = a.file ? () => openArtifacts([a.file as string]) : undefined;
   return (
     <div className={`node ${cls}`} onClick={onClick}>
       <div className="phase">apply</div>
@@ -143,7 +143,7 @@ function ApplyBar({ c }: { c: Change }) {
 
 export function ChangeCard({
   c,
-  openFile,
+  openArtifacts,
   onArchive,
   busy,
   removing,
@@ -178,11 +178,11 @@ export function ChangeCard({
         {c.phases.map((p, i) => (
           <Fragment key={p.id}>
             {i > 0 && <div className="arrow">→</div>}
-            <PhaseNode p={p} openFile={openFile} />
+            <PhaseNode p={p} openArtifacts={openArtifacts} />
           </Fragment>
         ))}
         <div className="arrow">→</div>
-        <ApplyNode c={c} openFile={openFile} />
+        <ApplyNode c={c} openArtifacts={openArtifacts} />
         <div className="arrow">→</div>
         <ReviewNode c={c} />
         <div className="arrow">→</div>
@@ -198,7 +198,7 @@ export function RepoGroup({
   list,
   collapsed,
   onToggle,
-  openFile,
+  openArtifacts,
   onArchive,
   archivingKeys,
   removingKeys,
@@ -228,7 +228,7 @@ export function RepoGroup({
             <ChangeCard
               key={k}
               c={c}
-              openFile={openFile}
+              openArtifacts={openArtifacts}
               onArchive={onArchive}
               busy={archivingKeys.has(k)}
               removing={removingKeys.has(k)}

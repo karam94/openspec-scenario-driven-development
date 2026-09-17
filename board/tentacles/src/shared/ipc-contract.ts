@@ -9,7 +9,7 @@ export interface Phase {
   id: PhaseId;
   applicable: boolean;
   done: boolean;
-  file: string | null;
+  files: string[];
   inProgress?: boolean;
 }
 

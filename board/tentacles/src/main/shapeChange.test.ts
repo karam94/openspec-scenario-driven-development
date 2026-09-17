@@ -73,4 +73,26 @@ describe("shapeChange — a phase is complete when the next artifact exists", ()
     expect(p.tasks.done).toBe(true);
     expect(p.tasks.inProgress).toBeFalsy();
   });
+
+  it("carries every spec file for a multi-capability specs phase, not just the first", async () => {
+    const status = statusWith(["grill", "proposal"]);
+    status.artifactPaths.specs.existingOutputPaths = [
+      "/nope/openspec/changes/c/specs/cap-a/spec.md",
+      "/nope/openspec/changes/c/specs/cap-b/spec.md",
+    ];
+
+    const c = await shapeChange("/nope/repo", "c", status);
+    const specs = c.phases.find((p) => p.id === "specs");
+
+    expect(specs?.files).toEqual([
+      "/nope/openspec/changes/c/specs/cap-a/spec.md",
+      "/nope/openspec/changes/c/specs/cap-b/spec.md",
+    ]);
+  });
+
+  it("carries a single-element files array for a non-specs phase", async () => {
+    const c = await shapeChange("/nope/repo", "c", statusWith(["grill", "proposal"]));
+    const proposal = c.phases.find((p) => p.id === "proposal");
+    expect(proposal?.files).toEqual(["/nope/openspec/changes/c/proposal.md"]);
+  });
 });

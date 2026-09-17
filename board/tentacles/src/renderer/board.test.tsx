@@ -31,7 +31,7 @@ describe("the renderer renders the board state", () => {
     const c = makeChange({
       change: "phases-demo",
       phases: [
-        phase("grill", { done: true, file: "/g.md" }),
+        phase("grill", { done: true, files: ["/g.md"] }),
         phase("proposal", { inProgress: true }),
         phase("specs", { applicable: false }),
         phase("design"),

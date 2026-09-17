@@ -8,7 +8,7 @@ function changeWithFile() {
   return makeChange({
     change: "file-demo",
     phases: [
-      phase("grill", { done: true, file: "/repo/openspec/changes/x/proposal.md" }),
+      phase("grill", { done: true, files: ["/repo/openspec/changes/x/proposal.md"] }),
       phase("proposal"),
       phase("specs"),
       phase("design"),
