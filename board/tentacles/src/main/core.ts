@@ -366,13 +366,15 @@ function notifyKey(c: Change): string {
 }
 
 // The completed "steps" of a change: each done planning phase, apply once done,
-// and review once passed. Reaching `complete` is reported separately as a
-// distinct change-complete notification, so it is not double-counted here.
+// review once passed, and done once the change is complete. The grill requires a
+// per-phase notification for every phase including done; the whole-change edge is
+// reported separately as `kind: "complete"`.
 function completedSteps(c: Change): string[] {
   const steps: string[] = [];
   for (const p of c.phases) if (p.applicable && p.done) steps.push(p.id);
   if (c.applyDone) steps.push("apply");
   if (c.review === "passed") steps.push("review");
+  if (c.complete) steps.push("done");
   return steps;
 }
 

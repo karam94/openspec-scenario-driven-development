@@ -83,6 +83,29 @@ describe("file modal", () => {
     expect(document.querySelector(".modal-body")?.textContent).not.toContain("# Title");
   });
 
+  it("renders links as external-only anchors so they cannot navigate the board window", async () => {
+    mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([changeWithFile()])),
+      readFile: vi.fn().mockResolvedValue({ ok: true, contents: "See [the docs](https://example.com/x)." }),
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await screen.findByText("file-demo");
+    await user.click(screen.getByText("grill"));
+
+    const link = await waitFor(() => {
+      const a = document.querySelector(".modal-body a") as HTMLAnchorElement | null;
+      expect(a).not.toBeNull();
+      return a as HTMLAnchorElement;
+    });
+    // target=_blank routes the click through the main window-open handler (external,
+    // https-only, child-window denied) instead of navigating the privileged window.
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.getAttribute("href")).toBe("https://example.com/x");
+  });
+
   it("closes on Escape, overlay click, and the close control", async () => {
     mockApi({
       getStatus: vi.fn().mockResolvedValue(makeStatus([changeWithFile()])),

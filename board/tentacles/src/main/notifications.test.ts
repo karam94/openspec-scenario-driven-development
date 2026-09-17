@@ -3,7 +3,7 @@ import { computeNotifications, type NotifyState } from "./core";
 import type { Change, Phase, PhaseId } from "../shared/ipc-contract";
 
 function phase(id: PhaseId, done: boolean): Phase {
-  return { id, applicable: true, done, file: null };
+  return { id, applicable: true, done, files: [] };
 }
 
 function makeChange(over: Partial<Change> = {}): Change {
@@ -64,20 +64,24 @@ describe("computeNotifications — edge-triggered completion notifications", () 
     expect(stable.notifications).toHaveLength(0);
   });
 
-  it("fires a distinct change-complete notification when a change reaches done", () => {
-    const before = makeChange({ complete: false });
-    const after = makeChange({
-      phases: [phase("grill", true), phase("proposal", true), phase("specs", true), phase("design", true), phase("tasks", true)],
-      applyDone: true,
-      review: "passed",
-      complete: true,
-    });
+  it("emits the done phase edge and a distinct change-complete edge on completion, exactly", () => {
+    const allDone = [
+      phase("grill", true),
+      phase("proposal", true),
+      phase("specs", true),
+      phase("design", true),
+      phase("tasks", true),
+    ];
+    // everything already done EXCEPT the whole-change completion
+    const before = makeChange({ phases: allDone, applyDone: true, review: "passed", complete: false });
+    const after = makeChange({ phases: allDone, applyDone: true, review: "passed", complete: true });
 
     const seeded = computeNotifications(null, [before]);
     const result = computeNotifications(seeded.next, [after]);
 
-    const complete = result.notifications.filter((n) => n.kind === "complete");
-    expect(complete).toHaveLength(1);
-    expect(complete[0]).toMatchObject({ change: "c", kind: "complete" });
+    // exactly two edges: the done phase completing, then the distinct change-complete
+    expect(result.notifications).toHaveLength(2);
+    expect(result.notifications[0]).toMatchObject({ change: "c", kind: "phase", phase: "done" });
+    expect(result.notifications[1]).toMatchObject({ change: "c", kind: "complete" });
   });
 });

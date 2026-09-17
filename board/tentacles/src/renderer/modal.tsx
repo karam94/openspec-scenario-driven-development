@@ -36,7 +36,16 @@ export function Modal({
           </button>
         </div>
         <div className="modal-body">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ node: _node, ...props }) => (
+                <a {...props} target="_blank" rel="noopener noreferrer" />
+              ),
+            }}
+          >
+            {body}
+          </ReactMarkdown>
         </div>
       </div>
     </div>

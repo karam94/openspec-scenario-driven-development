@@ -12,7 +12,6 @@ test.describe("phase progress", () => {
 
     await expect(card.locator(".node.progress", { hasText: "grill" })).toContainText("in progress");
     await expect(card.locator(".node", { hasText: "grill" })).not.toContainText("done");
-    // downstream planning phases are still pending
     await expect(card.locator(".node.pending", { hasText: "proposal" })).toContainText("pending");
   });
 });

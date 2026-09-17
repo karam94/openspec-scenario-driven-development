@@ -14,7 +14,6 @@ test.describe("multi-capability specs", () => {
 
     const modal = app.page.locator(".overlay.open");
     await expect(modal).toBeVisible();
-    // both capability headings and both spec bodies are present
     await expect(modal.locator(".modal-body")).toContainText("csv-export");
     await expect(modal.locator(".modal-body")).toContainText("pdf-export");
     await expect(modal.locator(".modal-body")).toContainText("The system exports data as CSV.");

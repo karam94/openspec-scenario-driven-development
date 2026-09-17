@@ -9,7 +9,6 @@ const REPO_BETA = path.join(APP_ROOT, "e2e", "fixtures", "repos", "repo-beta");
 
 test.describe("scan-root settings", () => {
   test("saving a valid root re-scans the board without a restart", async ({ app }) => {
-    // Initially the fixtures root is scanned → repo-alpha's add-search is visible.
     await expect(app.page.locator(".cname", { hasText: "add-search" })).toBeVisible();
 
     await app.page.getByTitle("Settings").click();
@@ -18,7 +17,7 @@ test.describe("scan-root settings", () => {
     await input.fill(REPO_BETA);
     await app.page.getByRole("button", { name: "Save" }).click();
 
-    // The board re-scans the new root: repo-beta's change shows, repo-alpha's is gone.
+    // repo-beta's change appears; repo-alpha's is gone → the root changed and re-scanned
     await expect(app.page.locator(".cname", { hasText: "refactor-cleanup" })).toBeVisible();
     await expect(app.page.locator(".cname", { hasText: "add-search" })).toHaveCount(0);
   });
@@ -30,7 +29,6 @@ test.describe("scan-root settings", () => {
     await app.page.getByLabel("Scan root directory").fill("/no/such/directory/anywhere");
     await app.page.getByRole("button", { name: "Save" }).click();
 
-    // inline error shown, panel stays open, board unchanged
     await expect(app.page.locator(".settings-error")).toBeVisible();
     await expect(app.page.getByLabel("Scan root directory")).toBeVisible();
     await expect(app.page.locator(".cname", { hasText: "add-search" })).toBeVisible();

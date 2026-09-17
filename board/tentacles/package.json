@@ -10,7 +10,7 @@
     "compile": "tsc -p tsconfig.main.json && vite build",
     "prestart": "npm run compile",
     "start": "electron .",
-    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json",
+    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json && tsc -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "npm run compile && playwright test",
