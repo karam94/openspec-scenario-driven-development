@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Native macOS Electron app for the OpenSpec Board (forked from board/server.js).",
+  "author": "OpenSpec Board",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
