@@ -51,7 +51,17 @@ export interface ArchiveArgs {
 export type ArchiveResult = { ok: true } | { ok: false; error: string };
 export type ReadFileResult = { ok: true; contents: string } | { ok: false; error: string };
 
-export type Channel = "board:getStatus" | "board:readFile" | "board:archive";
+// Exact method → channel-name mapping: the single source of truth for the
+// boundary. Both the preload bridge and the main-process IPC registry are typed
+// against it, so a typo, a missing channel, OR a swap (mapping a method to a
+// valid-but-wrong channel) all fail to compile.
+export interface ChannelMap {
+  getStatus: "board:getStatus";
+  readFile: "board:readFile";
+  archive: "board:archive";
+}
+
+export type Channel = ChannelMap[keyof ChannelMap];
 
 // The surface preload exposes on window.electronAPI; declared onto Window in the
 // renderer's global.d.ts so components get typed access rather than `any`.

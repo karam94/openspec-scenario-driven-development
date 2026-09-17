@@ -10,11 +10,12 @@
 import { execFile } from "node:child_process";
 import type { App, BrowserWindow, IpcMain, IpcMainInvokeEvent, WebPreferences } from "electron";
 import type { Args } from "./core";
-import type { ArchiveArgs, ArchiveResult, Channel, ReadFileResult, StatusResult } from "../shared/ipc-contract";
+import type { ArchiveArgs, ArchiveResult, ChannelMap, ReadFileResult, StatusResult } from "../shared/ipc-contract";
 
 // IPC channel names. preload.ts hardcodes the same string literals (a sandboxed
-// preload cannot import this module); keep them in sync with the Channel type.
-export const IPC: Record<"getStatus" | "readFile" | "archive", Channel> = {
+// preload cannot import this module); both are typed against the shared
+// ChannelMap so the two stay in exact agreement.
+export const IPC: ChannelMap = {
   getStatus: "board:getStatus",
   readFile: "board:readFile",
   archive: "board:archive",

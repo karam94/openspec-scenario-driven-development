@@ -1,11 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { Channel, ElectronAPI } from "../shared/ipc-contract";
+import type { ChannelMap, ElectronAPI } from "../shared/ipc-contract";
 
 // Exactly three named channels — no generic command passthrough. A sandboxed
 // preload cannot import wiring.ts at runtime, so the channel strings are
-// declared here; typing the map as Record<keyof ElectronAPI, Channel> asserts
-// them against the shared contract (a typo or unknown channel fails to compile).
-const CHANNELS: Record<keyof ElectronAPI, Channel> = {
+// declared here; typing the map as the shared ChannelMap asserts each method is
+// bound to its exact channel (a typo, missing key, or swap fails to compile).
+const CHANNELS: ChannelMap = {
   getStatus: "board:getStatus",
   readFile: "board:readFile",
   archive: "board:archive",
