@@ -25,7 +25,7 @@ local server on `http://127.0.0.1:7788`, and opens it in your browser.
 | Flag | Default | Meaning |
 |------|---------|---------|
 | `--root <dir>` | `~/Code` | Root to recursively scan for repos |
-| `--depth <n>` | `4` | Max scan depth |
+| `--depth <n>` | `30` | Max scan depth |
 | `--repo <path>` | — | Use this repo explicitly (repeatable); bypasses scanning |
 | `--repos a,b` | — | Comma-separated explicit repos |
 | `--port <n>` | `7788` | Port to serve on |
