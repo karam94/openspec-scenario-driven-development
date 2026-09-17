@@ -1,0 +1,30 @@
+import { app, BrowserWindow, ipcMain, shell } from "electron";
+import path from "node:path";
+import core from "./core";
+import { bootstrap, resolveShellPath, loginShellPath } from "./wiring";
+
+const args = core.defaultArgs();
+
+// Runs from build/main/ after compile, so preload and the renderer index resolve
+// relative to that: build/preload/preload.js and build/renderer/index.html. The
+// loadFile-under-file: posture (ADR-0002) is unchanged — still local files.
+const windowOpts = {
+  preloadPath: path.join(__dirname, "../preload/preload.js"),
+  indexPath: path.join(__dirname, "../renderer/index.html"),
+  openExternal: (url: string) => shell.openExternal(url),
+};
+
+// bootstrap registers IPC first, resolves the login-shell PATH before the first
+// window (so openspec/gh resolve), opens exactly one window, and only then arms
+// `activate` — so first-launch activation cannot race startup into a second window.
+app.whenReady().then(() =>
+  bootstrap({
+    app,
+    BrowserWindow,
+    ipcMain,
+    core,
+    getArgs: () => args,
+    resolvePath: () => resolveShellPath(loginShellPath, process.env),
+    windowOpts,
+  })
+);
