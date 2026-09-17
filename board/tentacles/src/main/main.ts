@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import path from "node:path";
 import core from "./core";
-import { bootstrap, resolveShellPath, loginShellPath } from "./wiring";
+import { bootstrap, resolveShellPath, loginShellPath, resolvePathFor } from "./wiring";
 
 const args = core.defaultArgs();
 
@@ -19,9 +19,7 @@ const windowOpts = {
 // `activate` — so first-launch activation cannot race startup into a second window.
 // Under TENTACLES_E2E, PATH resolution is a no-op so an injected stub-bin PATH
 // (the e2e harness) survives instead of being overwritten by the login shell's.
-const resolvePath = process.env.TENTACLES_E2E
-  ? () => Promise.resolve()
-  : () => resolveShellPath(loginShellPath, process.env);
+const resolvePath = resolvePathFor(process.env, () => resolveShellPath(loginShellPath, process.env));
 
 app.whenReady().then(() =>
   bootstrap({

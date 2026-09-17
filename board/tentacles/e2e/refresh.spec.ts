@@ -10,12 +10,18 @@ test.describe("auto-refresh", () => {
     await app.page.waitForLoadState("domcontentloaded");
     await expect(app.page.locator(".cname", { hasText: "add-search" })).toBeVisible();
 
+    const statusText = app.page.locator("header .meta span", { hasText: "updated" });
+    await expect(statusText).toBeVisible();
+    const before = (await statusText.textContent()) ?? "";
     const statusCalls = () => (app.readStubLog().match(/openspec status/g) || []).length;
-    const before = statusCalls();
+    const callsBefore = statusCalls();
 
-    // Advance past REFRESH_MS (15s) — the interval fires a second getStatus.
+    // Advance past REFRESH_MS (15s) — the interval fires a second getStatus...
     await app.page.clock.fastForward(20_000);
 
-    await expect.poll(() => statusCalls()).toBeGreaterThan(before);
+    // ...a second fetch happened AND the board re-rendered it (the updated-at
+    // timestamp, produced fresh on each refresh, changes on the page).
+    await expect.poll(() => statusCalls()).toBeGreaterThan(callsBefore);
+    await expect(statusText).not.toHaveText(before);
   });
 });
