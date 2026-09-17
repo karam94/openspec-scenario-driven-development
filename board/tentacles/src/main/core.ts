@@ -218,7 +218,7 @@ export function changeBranch(repo: string, change: string): string | null {
   const p = path.join(repo, "openspec", "changes", change, "tasks.md");
   try {
     const text = fs.readFileSync(p, "utf8");
-    const m = text.match(/branch\s*[`'"]([^`'"\s]+)[`'"]/i);
+    const m = text.match(/branch\s*[:=]?\s*[`'"]([^`'"\s]+)[`'"]/i);
     if (m) return m[1] ?? null;
   } catch {
     /* none */
