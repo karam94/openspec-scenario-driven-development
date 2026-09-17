@@ -1,0 +1,39 @@
+#!/bin/bash
+# e2e stub for `openspec`. Deterministic, hermetic replacement used only by the
+# Playwright harness (resolved because TENTACLES_E2E keeps the injected PATH).
+# Logs EVERY invocation to $E2E_STUB_LOG so tests can prove the stub — not the
+# real CLI — was the one that ran, and that archive actually reached core.
+set -euo pipefail
+
+SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG="${E2E_STUB_LOG:-/dev/null}"
+echo "openspec $*" >> "$LOG"
+
+cmd="${1:-}"
+
+if [ "$cmd" = "status" ]; then
+  change=""
+  shift || true
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --change) change="${2:-}"; shift 2 || shift;;
+      *) shift;;
+    esac
+  done
+  tpl="$SELF/../status/${change}.json"
+  if [ -f "$tpl" ]; then
+    # __REPO__ → the repo the app invoked us in (execFile runs with cwd: repo).
+    sed "s#__REPO__#${PWD}#g" "$tpl"
+  else
+    echo '{}'
+  fi
+  exit 0
+fi
+
+if [ "$cmd" = "archive" ]; then
+  # No disk mutation — the invocation log above is the observable proof.
+  exit 0
+fi
+
+echo '{}'
+exit 0

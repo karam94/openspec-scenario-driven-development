@@ -63,9 +63,14 @@ export const PRUNE = new Set([
 export const DEFAULT_DEPTH = 30;
 
 // The app has no CLI flags (a double-clicked .app can't take them). It scans
-// ~/Code at depth 30 — the same default as board/server.js.
+// ~/Code at depth 30 — the same default as board/server.js. TENTACLES_ROOT /
+// TENTACLES_DEPTH override the scan root/depth so a launched process can be
+// pointed at a seeded fixtures tree (e2e); unset preserves today's behaviour.
 export function defaultArgs(): Args {
-  return { repos: [], root: path.join(os.homedir(), "Code"), depth: DEFAULT_DEPTH };
+  const root = process.env.TENTACLES_ROOT || path.join(os.homedir(), "Code");
+  const parsedDepth = parseInt(process.env.TENTACLES_DEPTH || "", 10);
+  const depth = Number.isFinite(parsedDepth) ? parsedDepth : DEFAULT_DEPTH;
+  return { repos: [], root, depth };
 }
 
 export function isRepo(dir: string): boolean {

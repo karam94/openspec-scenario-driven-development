@@ -162,6 +162,16 @@ export async function resolveShellPath(
   return env.PATH;
 }
 
+// Selects the startup PATH resolver: under TENTACLES_E2E a no-op (so an injected
+// PATH survives for the e2e harness), otherwise the real resolver. Pure so both
+// branches are observable in a unit test and a reversed flag cannot slip through.
+export function resolvePathFor(
+  env: NodeJS.ProcessEnv,
+  realResolver: () => Promise<unknown>
+): () => Promise<unknown> {
+  return env.TENTACLES_E2E ? () => Promise.resolve() : realResolver;
+}
+
 // Real resolver: ask the user's login shell for its PATH (macOS GUI apps get a
 // minimal PATH). Best-effort — returns null on failure, leaving PATH unchanged.
 export function loginShellPath(): Promise<string | null> {
