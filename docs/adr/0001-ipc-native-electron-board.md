@@ -47,7 +47,7 @@ module: `board/tentacles/core.js` is a fork of `server.js`'s logic.
 
 - No localhost port and no HTTP listener in the app — a smaller surface and no
   EADDRINUSE/port-collision handling needed.
-- The board logic is **duplicated** (old `server.js` and new `desktop/core.js`).
+- The board logic is **duplicated** (old `server.js` and new `board/tentacles/core.js`).
   Future board behaviour changes must be applied to both. This is the accepted
   price of keeping the old board as an untouched working reference.
 - The run-in-any-browser mode is **not** available in the new app (it never binds
