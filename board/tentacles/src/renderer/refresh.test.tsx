@@ -35,4 +35,13 @@ describe("auto-refresh and empty/error states", () => {
     expect(await screen.findByText("Error: boom")).toBeInTheDocument();
     expect(screen.queryByText("Archive")).toBeNull();
   });
+
+  it("marks the indicator stale and shows a retry status when the bridge rejects", async () => {
+    mockApi({ getStatus: vi.fn().mockRejectedValue(new Error("bridge down")) });
+
+    render(<App />);
+
+    expect(await screen.findByText("refresh failed — retrying")).toBeInTheDocument();
+    expect(document.querySelector(".dot")?.className).toContain("stale");
+  });
 });

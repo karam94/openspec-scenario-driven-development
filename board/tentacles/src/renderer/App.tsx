@@ -24,6 +24,7 @@ function readCollapsed(): Set<string> {
 export default function App() {
   const [status, setStatus] = useState<StatusResult | null>(null);
   const [stale, setStale] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
   const [updatedAt, setUpdatedAt] = useState("");
   const [theme, setTheme] = useState<ThemeChoice>(() => readSavedTheme());
   const [collapsed, setCollapsed] = useState<Set<string>>(() => readCollapsed());
@@ -52,6 +53,7 @@ export default function App() {
       const data = await window.electronAPI.getStatus();
       setStatus(data);
       setStale(false);
+      setRefreshFailed(false);
       setUpdatedAt(new Date().toLocaleTimeString());
       if (!("error" in data)) {
         const present = new Set(data.changes.map(keyOf));
@@ -62,6 +64,7 @@ export default function App() {
       }
     } catch {
       setStale(true);
+      setRefreshFailed(true);
     }
   }, []);
 
@@ -155,9 +158,11 @@ export default function App() {
 
   const repoCount = status && "repoCount" in status ? status.repoCount : 0;
   const changeCount = status && "changes" in status ? status.changes.length : 0;
-  const statusText = status
-    ? `${changeCount} change(s) · ${repoCount} repo(s) · updated ${updatedAt}`
-    : "connecting…";
+  const statusText = refreshFailed
+    ? "refresh failed — retrying"
+    : status
+      ? `${changeCount} change(s) · ${repoCount} repo(s) · updated ${updatedAt}`
+      : "connecting…";
 
   let main: React.ReactNode;
   if (!status) {
