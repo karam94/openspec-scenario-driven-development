@@ -7,7 +7,7 @@
  * browser page and cannot exec the CLI — this server does that for it.
  *
  * Usage:
- *   node board/server.js [--port 7788] [--root ~/Code] [--depth 4] [--no-open]
+ *   node board/server.js [--port 7788] [--root ~/Code] [--depth 30] [--no-open]
  *   node board/server.js --repo /path/a --repo /path/b   (explicit override)
  *
  * On start it opens the board in your default browser (--no-open to disable).
@@ -38,7 +38,7 @@ const PRUNE = new Set([
   ".venv", "venv", "__pycache__", ".cache", ".next", ".turbo", "coverage",
   "vendor", ".idea", ".vscode", "Pods", "DerivedData",
 ]);
-const DEFAULT_DEPTH = 4;
+const DEFAULT_DEPTH = 30;
 
 function parseArgs(argv) {
   const out = { port: 7788, repos: [], root: path.join(os.homedir(), "Code"), depth: DEFAULT_DEPTH, open: true };

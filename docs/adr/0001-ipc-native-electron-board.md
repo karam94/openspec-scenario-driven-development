@@ -39,9 +39,10 @@ calls handled by `ipcMain.handle`, which invoke `core.js` (see ADR-0002 for the
 renderer security posture).
 
 The existing HTTP board (`board/server.js`, `board/index.html`, `board/README.md`)
-is **retained byte-for-byte, alongside the new app, as a reference implementation**
-— not deleted or refactored. Because the old board is frozen, there is no shared
-module: `board/tentacles/core.js` is a fork of `server.js`'s logic.
+is **retained alongside the new app as a reference implementation** — its logic is
+not refactored (the only edit is a one-line scan-depth default bump, 4→30, so the
+app and the board agree). Because the old board's logic is untouched there is no
+shared module: `board/tentacles/core.js` is a fork of `server.js`'s logic.
 
 ## Consequences
 
