@@ -293,13 +293,14 @@ async function getStatus(args = defaultArgs()) {
 }
 
 // Guarded archive: only for a currently-discovered repo AND a real change.
-async function archiveChange(args, repoPath, change) {
+// `archiver` is injectable so the guard is testable without shelling out.
+async function archiveChange(args, repoPath, change, archiver = runArchive) {
   const repos = discoverRepos(args);
   const okRepo = repos.some((r) => path.resolve(r) === path.resolve(repoPath || ""));
   if (!okRepo || !change || !listChanges(repoPath).includes(change)) {
     return { ok: false, error: "unknown repo or change" };
   }
-  return runArchive(repoPath, change);
+  return archiver(repoPath, change);
 }
 
 // Guarded read: only a path resolving inside a currently-discovered repo.
