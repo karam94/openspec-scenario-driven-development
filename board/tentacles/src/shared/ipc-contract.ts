@@ -1,4 +1,4 @@
-// Type-only IPC contract: the single source of truth for the six board
+// Type-only IPC contract: the single source of truth for the board
 // channels and their payload/result shapes. Everything here is a type, so it
 // erases at compile and adds no runtime coupling between the CJS main bundle
 // and the Vite renderer bundle.
@@ -55,6 +55,25 @@ export interface ArchiveArgs {
 export type ArchiveResult = { ok: true } | { ok: false; error: string };
 export type ReadFileResult = { ok: true; contents: string } | { ok: false; error: string };
 
+// A branch diff, structured before it crosses IPC (ADR-0002): the renderer paints
+// data, never tints raw text. Each line is classified so the renderer maps kind →
+// colour without re-parsing.
+export type DiffLineKind = "add" | "del" | "context";
+export interface DiffLine {
+  kind: DiffLineKind;
+  text: string;
+}
+export interface DiffHunk {
+  lines: DiffLine[];
+}
+export type DiffFileStatus = "added" | "deleted" | "modified" | "renamed" | "binary";
+export interface DiffFile {
+  path: string;
+  status: DiffFileStatus;
+  hunks: DiffHunk[];
+}
+export type DiffResult = { ok: true; files: DiffFile[] } | { ok: false; error: string };
+
 export interface BoardSettings {
   root: string;
   notifications: NotificationSetting;
@@ -82,6 +101,8 @@ export type ChooseDirectoryResult = { path: string | null };
 export interface ChannelMap {
   getStatus: "board:getStatus";
   readFile: "board:readFile";
+  getDiff: "board:getDiff";
+  getFileDiff: "board:getFileDiff";
   archive: "board:archive";
   getSettings: "board:getSettings";
   setSettings: "board:setSettings";
@@ -105,6 +126,8 @@ export type EventChannel = EventChannelMap[keyof EventChannelMap];
 export interface ElectronAPI {
   getStatus(): Promise<StatusResult>;
   readFile(filePath: string): Promise<ReadFileResult>;
+  getDiff(repoPath: string): Promise<DiffResult>;
+  getFileDiff(repoPath: string, filePath: string): Promise<DiffResult>;
   archive(payload: ArchiveArgs): Promise<ArchiveResult>;
   getSettings(): Promise<BoardSettings>;
   setSettings(payload: SetSettingsArgs): Promise<SetSettingsResult>;
