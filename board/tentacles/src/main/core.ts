@@ -450,13 +450,16 @@ async function fileDiffFullContext(repo: string, repoRoot: string, filePath: str
   }
   const head = await runGitText(repo, ["-c", "core.quotePath=false", "diff", "HEAD", ctx, "--", filePath]);
   if (head) return head;
-  // The --no-index fallback reads the raw working tree, so it is the only path that
-  // can follow a symlink off disk. Re-validate at the point of use, not just at
-  // entry: the file must exist as a regular file whose canonical path is still
-  // inside the repo right now. A missing path has no untracked content to show and
-  // must never reach --no-index — this closes the window where an ancestor absent at
-  // entry is created as an outside-pointing symlink before this call. Tracked
-  // deletions never get here; they resolve from git's tree above.
+  // The tracked diffs above also read working-tree state, but git treats an
+  // outside-pointing intermediate symlink on a tracked pathspec as a deletion
+  // rather than following it off disk. The --no-index fallback is the one path
+  // that would follow such a symlink and read arbitrary bytes, so re-validate
+  // containment at the point of use, not just at entry: the file must exist as a
+  // regular file whose canonical path is still inside the repo right now. A
+  // missing path has no untracked content to show and must never reach --no-index
+  // — this closes the window where an ancestor absent at entry is created as an
+  // outside-pointing symlink before this call. Tracked deletions never get here;
+  // they resolve from git's tree above.
   const safe = containedRealPath(repoRoot, filePath);
   if (!safe) return "";
   let stat: fs.Stats;

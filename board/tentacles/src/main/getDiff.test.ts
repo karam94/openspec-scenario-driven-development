@@ -343,13 +343,14 @@ describe("getFileDiff — full-context diff of one file", () => {
     expect(lines.some((l) => l.kind === "add" && l.text === "world")).toBe(true);
   });
 
-  it("a path whose ancestor is absent never reaches the untracked filesystem read", async () => {
+  it("returns no diff for a path whose ancestor does not exist", async () => {
     const dir = makeRepoWithBigChange();
     const args: Args = { repos: [dir], root: "/nonexistent", depth: 1 };
-    // A path validated only because the repo root is its nearest existing ancestor
-    // (the intermediate component does not exist). It must yield no diff and read
-    // nothing off disk, so a component created as an outside symlink after entry
-    // validation can never be followed by the --no-index fallback.
+    // Observable contract: a path accepted at entry only because the repo root is
+    // its nearest existing ancestor yields an empty result. The deterministic
+    // escape vectors (directory and file symlinks pointing outside) are proven by
+    // the refusal tests above; the point-of-use re-check additionally guards the
+    // mid-call mutation window, which is not deterministically reproducible here.
     const res = await getFileDiff(args, dir, "phantom-dir/whatever.txt");
 
     expect(res.ok).toBe(true);
