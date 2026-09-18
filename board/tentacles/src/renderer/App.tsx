@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Change, StatusResult } from "../shared/ipc-contract";
 import { RepoGroup } from "./board";
-import { Modal } from "./modal";
+import { Modal, type ModalSection } from "./modal";
 import { SettingsPanel } from "./settings";
 
 const REFRESH_MS = 15000;
@@ -9,7 +9,7 @@ type ThemeChoice = "light" | "dark" | null;
 
 const keyOf = (c: Change) => `${c.repoPath}\u0000${c.change}`;
 
-// specs/<capability>/spec.md → <capability>; used as the heading when several
+// specs/<capability>/spec.md → <capability>; used as the tab label when several
 // spec files are shown together. Falls back to the file name for other shapes.
 function capabilityOf(file: string): string {
   const m = file.match(/specs\/([^/]+)\/[^/]+$/);
@@ -40,7 +40,11 @@ export default function App() {
   const [archiving, setArchiving] = useState<Set<string>>(() => new Set());
   const [removing, setRemoving] = useState<Set<string>>(() => new Set());
   const inFlight = useRef<Set<string>>(new Set());
-  const [modal, setModal] = useState({ open: false, title: "", body: "" });
+  const [modal, setModal] = useState<{ open: boolean; title: string; sections: ModalSection[] }>({
+    open: false,
+    title: "",
+    sections: [],
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useLayoutEffect(() => {
@@ -87,9 +91,9 @@ export default function App() {
     if (files.length === 0) return;
     const single = files.length === 1;
     const title = single ? (files[0] as string) : `${files.length} spec files`;
-    setModal({ open: true, title, body: "Loading…" });
+    setModal({ open: true, title, sections: [{ label: "", body: "Loading…" }] });
     try {
-      const parts = await Promise.all(
+      const sections = await Promise.all(
         files.map(async (file) => {
           let contents = "Could not read file.";
           try {
@@ -98,12 +102,12 @@ export default function App() {
           } catch {
             /* keep the fallback */
           }
-          return single ? contents : `## ${capabilityOf(file)}\n\n${contents}`;
+          return { label: capabilityOf(file), body: contents };
         })
       );
-      setModal({ open: true, title, body: parts.join("\n\n") });
+      setModal({ open: true, title, sections });
     } catch {
-      setModal({ open: true, title, body: "Could not read file." });
+      setModal({ open: true, title, sections: [{ label: "", body: "Could not read file." }] });
     }
   }, []);
 
@@ -226,7 +230,7 @@ export default function App() {
         </div>
       </header>
       <main>{main}</main>
-      <Modal open={modal.open} title={modal.title} body={modal.body} onClose={closeModal} />
+      <Modal open={modal.open} title={modal.title} sections={modal.sections} onClose={closeModal} />
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={() => void refresh()} />
     </>
   );

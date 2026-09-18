@@ -1,18 +1,22 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+
+export type ModalSection = { label: string; body: string };
 
 export function Modal({
   open,
   title,
-  body,
+  sections,
   onClose,
 }: {
   open: boolean;
   title: string;
-  body: string;
+  sections: ModalSection[];
   onClose: () => void;
 }) {
+  const [active, setActive] = useState(0);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -20,6 +24,13 @@ export function Modal({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  useEffect(() => {
+    setActive(0);
+  }, [sections]);
+
+  const multi = sections.length > 1;
+  const current = sections[Math.min(active, Math.max(sections.length - 1, 0))];
 
   return (
     <div
@@ -35,6 +46,21 @@ export function Modal({
             ×
           </button>
         </div>
+        {multi && (
+          <div className="modal-tabs" role="tablist">
+            {sections.map((s, i) => (
+              <button
+                key={`${s.label}\u0000${i}`}
+                role="tab"
+                aria-selected={i === active}
+                className={`modal-tab ${i === active ? "active" : ""}`}
+                onClick={() => setActive(i)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="modal-body">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
@@ -44,7 +70,7 @@ export function Modal({
               ),
             }}
           >
-            {body}
+            {current?.body ?? ""}
           </ReactMarkdown>
         </div>
       </div>
