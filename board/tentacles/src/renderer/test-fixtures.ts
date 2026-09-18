@@ -40,6 +40,7 @@ export type MockApi = {
   archive: ReturnType<typeof vi.fn>;
   getSettings: ReturnType<typeof vi.fn>;
   setSettings: ReturnType<typeof vi.fn>;
+  chooseDirectory: ReturnType<typeof vi.fn>;
 };
 
 export function mockApi(over: Partial<ElectronAPI> = {}): MockApi {
@@ -49,6 +50,7 @@ export function mockApi(over: Partial<ElectronAPI> = {}): MockApi {
     archive: vi.fn().mockResolvedValue({ ok: true }),
     getSettings: vi.fn().mockResolvedValue({ root: "/Code" }),
     setSettings: vi.fn().mockResolvedValue({ ok: true, root: "/Code" }),
+    chooseDirectory: vi.fn().mockResolvedValue({ path: null }),
     ...over,
   } as unknown as MockApi;
   (window as unknown as { electronAPI: ElectronAPI }).electronAPI = api as unknown as ElectronAPI;

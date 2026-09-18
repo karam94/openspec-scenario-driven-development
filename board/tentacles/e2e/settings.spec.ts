@@ -33,4 +33,24 @@ test.describe("scan-root settings", () => {
     await expect(app.page.getByLabel("Scan root directory")).toBeVisible();
     await expect(app.page.locator(".cname", { hasText: "add-search" })).toBeVisible();
   });
+
+  test("Browse fills the input from the native picker, then Save re-scans", async ({ app }) => {
+    // Stub the native directory dialog in the main process to return repo-beta's
+    // parent, so no real OS dialog is needed and the picked path is deterministic.
+    await app.electronApp.evaluate(({ dialog }, picked) => {
+      dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [picked] });
+    }, REPO_BETA);
+
+    await expect(app.page.locator(".cname", { hasText: "add-search" })).toBeVisible();
+
+    await app.page.getByTitle("Settings").click();
+    const input = app.page.getByLabel("Scan root directory");
+    await expect(input).toBeVisible();
+    await app.page.getByRole("button", { name: "Browse…" }).click();
+    await expect(input).toHaveValue(REPO_BETA);
+
+    await app.page.getByRole("button", { name: "Save" }).click();
+    await expect(app.page.locator(".cname", { hasText: "refactor-cleanup" })).toBeVisible();
+    await expect(app.page.locator(".cname", { hasText: "add-search" })).toHaveCount(0);
+  });
 });

@@ -59,6 +59,10 @@ export interface SetSettingsArgs {
 }
 export type SetSettingsResult = { ok: true; root: string } | { ok: false; error: string };
 
+// A native directory-picker result. `path` is the chosen directory, or null when
+// the user cancels the dialog (the renderer then leaves the input untouched).
+export type ChooseDirectoryResult = { path: string | null };
+
 // Exact method → channel-name mapping: the single source of truth for the
 // boundary. Both the preload bridge and the main-process IPC registry are typed
 // against it, so a typo, a missing channel, OR a swap (mapping a method to a
@@ -69,6 +73,7 @@ export interface ChannelMap {
   archive: "board:archive";
   getSettings: "board:getSettings";
   setSettings: "board:setSettings";
+  chooseDirectory: "board:chooseDirectory";
 }
 
 export type Channel = ChannelMap[keyof ChannelMap];
@@ -81,4 +86,5 @@ export interface ElectronAPI {
   archive(payload: ArchiveArgs): Promise<ArchiveResult>;
   getSettings(): Promise<BoardSettings>;
   setSettings(payload: SetSettingsArgs): Promise<SetSettingsResult>;
+  chooseDirectory(): Promise<ChooseDirectoryResult>;
 }

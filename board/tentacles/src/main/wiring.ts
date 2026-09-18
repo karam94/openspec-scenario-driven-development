@@ -19,6 +19,7 @@ import type {
   BoardSettings,
   Change,
   ChannelMap,
+  ChooseDirectoryResult,
   ReadFileResult,
   SetSettingsArgs,
   SetSettingsResult,
@@ -34,6 +35,7 @@ export const IPC: ChannelMap = {
   archive: "board:archive",
   getSettings: "board:getSettings",
   setSettings: "board:setSettings",
+  chooseDirectory: "board:chooseDirectory",
 };
 
 // The subset of core the handlers depend on.
@@ -71,6 +73,23 @@ export interface SettingsDeps {
   home?: string;
 }
 
+// The native directory picker, reduced to a pure result the handler can return:
+// the chosen absolute path, or null when the user cancels or selects nothing.
+export type ChooseDirectory = () => Promise<string | null>;
+
+// The raw shape Electron's dialog.showOpenDialog resolves to; injected so the
+// cancel/empty → null decision is unit-testable without a real dialog. main.ts
+// supplies the real one bound to the focused window and openDirectory options.
+export type ShowOpenDialog = () => Promise<{ canceled: boolean; filePaths: string[] }>;
+
+export function makeDirectoryChooser(showOpenDialog: ShowOpenDialog): ChooseDirectory {
+  return async () => {
+    const { canceled, filePaths } = await showOpenDialog();
+    if (canceled || filePaths.length === 0) return null;
+    return filePaths[0] ?? null;
+  };
+}
+
 // The privileged operations, each backed by core. `getArgs` is a getter
 // so the scan args are read fresh per call. `observe` (optional) is handed each
 // scan's changes so completion notifications can fire main-side. `settings`
@@ -79,7 +98,8 @@ export function makeHandlers(
   core: BoardCore,
   getArgs: () => Args,
   observe?: (changes: Change[]) => void,
-  settings?: SettingsDeps
+  settings?: SettingsDeps,
+  chooseDirectory?: ChooseDirectory
 ) {
   return {
     getStatus: async () => {
@@ -101,6 +121,9 @@ export function makeHandlers(
       settings.setRoot(res.root);
       return { ok: true, root: res.root };
     },
+    chooseDirectory: async (): Promise<ChooseDirectoryResult> => ({
+      path: chooseDirectory ? await chooseDirectory() : null,
+    }),
   };
 }
 
@@ -109,14 +132,16 @@ export function registerIpc(
   core: BoardCore,
   getArgs: () => Args,
   observe?: (changes: Change[]) => void,
-  settings?: SettingsDeps
+  settings?: SettingsDeps,
+  chooseDirectory?: ChooseDirectory
 ) {
-  const handlers = makeHandlers(core, getArgs, observe, settings);
+  const handlers = makeHandlers(core, getArgs, observe, settings, chooseDirectory);
   ipcMain.handle(IPC.getStatus, handlers.getStatus);
   ipcMain.handle(IPC.readFile, handlers.readFile);
   ipcMain.handle(IPC.archive, handlers.archive);
   ipcMain.handle(IPC.getSettings, handlers.getSettings);
   ipcMain.handle(IPC.setSettings, handlers.setSettings);
+  ipcMain.handle(IPC.chooseDirectory, handlers.chooseDirectory);
   return handlers;
 }
 
@@ -213,6 +238,7 @@ export interface BootstrapDeps {
   platform?: NodeJS.Platform;
   observe?: (changes: Change[]) => void;
   settings?: SettingsDeps;
+  chooseDirectory?: ChooseDirectory;
 }
 
 // Ordered startup coordinator. Registers IPC handlers BEFORE any window can call
@@ -230,8 +256,9 @@ export async function bootstrap({
   platform = process.platform,
   observe,
   settings,
+  chooseDirectory,
 }: BootstrapDeps) {
-  registerIpc(ipcMain, core, getArgs, observe, settings);
+  registerIpc(ipcMain, core, getArgs, observe, settings, chooseDirectory);
   const windows = makeWindowManager(BrowserWindowCtor, windowOpts);
   let started = false;
 

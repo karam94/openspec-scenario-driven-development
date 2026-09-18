@@ -52,6 +52,16 @@ export function SettingsPanel({
     }
   };
 
+  const browse = async () => {
+    setError("");
+    try {
+      const res = await window.electronAPI.chooseDirectory();
+      if (res.path) setRoot(res.path);
+    } catch {
+      /* dialog cancelled or unavailable — leave the field untouched */
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -72,15 +82,20 @@ export function SettingsPanel({
           <label className="settings-label" htmlFor="settings-root">
             Scan root directory
           </label>
-          <input
-            id="settings-root"
-            className="settings-input"
-            type="text"
-            value={root}
-            placeholder="~/Code"
-            spellCheck={false}
-            onChange={(e) => setRoot(e.target.value)}
-          />
+          <div className="settings-input-row">
+            <input
+              id="settings-root"
+              className="settings-input"
+              type="text"
+              value={root}
+              placeholder="~/Code"
+              spellCheck={false}
+              onChange={(e) => setRoot(e.target.value)}
+            />
+            <button className="settings-browse" type="button" onClick={() => void browse()}>
+              Browse…
+            </button>
+          </div>
           {error && <div className="settings-error">{error}</div>}
           <div className="settings-actions">
             <button className="settings-save" onClick={() => void save()} disabled={saving}>

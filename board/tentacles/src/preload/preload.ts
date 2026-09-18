@@ -11,6 +11,7 @@ const CHANNELS: ChannelMap = {
   archive: "board:archive",
   getSettings: "board:getSettings",
   setSettings: "board:setSettings",
+  chooseDirectory: "board:chooseDirectory",
 };
 
 const api: ElectronAPI = {
@@ -19,6 +20,7 @@ const api: ElectronAPI = {
   archive: (payload) => ipcRenderer.invoke(CHANNELS.archive, payload),
   getSettings: () => ipcRenderer.invoke(CHANNELS.getSettings),
   setSettings: (payload) => ipcRenderer.invoke(CHANNELS.setSettings, payload),
+  chooseDirectory: () => ipcRenderer.invoke(CHANNELS.chooseDirectory),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

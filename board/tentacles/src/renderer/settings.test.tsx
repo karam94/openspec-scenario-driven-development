@@ -51,4 +51,42 @@ describe("settings panel", () => {
     expect(await screen.findByText("That directory does not exist.")).toBeInTheDocument();
     expect(screen.getByLabelText("Scan root directory")).toBeInTheDocument();
   });
+
+  it("fills the input with a directory chosen from the native picker", async () => {
+    const chooseDirectory = vi.fn().mockResolvedValue({ path: "/picked/root" });
+    mockApi({
+      getSettings: vi.fn().mockResolvedValue({ root: "/old/root" }),
+      chooseDirectory,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await openSettings(user);
+
+    const input = screen.getByLabelText("Scan root directory") as HTMLInputElement;
+    await waitFor(() => expect(input.value).toBe("/old/root"));
+    await user.click(screen.getByRole("button", { name: "Browse…" }));
+
+    expect(chooseDirectory).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(input.value).toBe("/picked/root"));
+  });
+
+  it("leaves the input unchanged when the picker is cancelled", async () => {
+    const chooseDirectory = vi.fn().mockResolvedValue({ path: null });
+    mockApi({
+      getSettings: vi.fn().mockResolvedValue({ root: "/old/root" }),
+      chooseDirectory,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await openSettings(user);
+
+    const input = screen.getByLabelText("Scan root directory") as HTMLInputElement;
+    await waitFor(() => expect(input.value).toBe("/old/root"));
+    await user.click(screen.getByRole("button", { name: "Browse…" }));
+
+    expect(chooseDirectory).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(input.value).toBe("/old/root"));
+  });
 });
