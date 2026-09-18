@@ -86,6 +86,16 @@ export interface ChannelMap {
 
 export type Channel = ChannelMap[keyof ChannelMap];
 
+// Main → renderer push channels (webContents.send). Unlike the invoke channels
+// above these carry no payload and expect no reply; the renderer subscribes via
+// the ElectronAPI surface. notificationSound tells the renderer to play the
+// bundled completion sound, fired only when a banner is shown with sound.
+export interface EventChannelMap {
+  notificationSound: "board:notificationSound";
+}
+
+export type EventChannel = EventChannelMap[keyof EventChannelMap];
+
 // The surface preload exposes on window.electronAPI; declared onto Window in the
 // renderer's global.d.ts so components get typed access rather than `any`.
 export interface ElectronAPI {
@@ -95,4 +105,5 @@ export interface ElectronAPI {
   getSettings(): Promise<BoardSettings>;
   setSettings(payload: SetSettingsArgs): Promise<SetSettingsResult>;
   chooseDirectory(): Promise<ChooseDirectoryResult>;
+  onNotificationSound(handler: () => void): () => void;
 }

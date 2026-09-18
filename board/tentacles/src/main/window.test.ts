@@ -27,6 +27,7 @@ describe("secure window creation", () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      autoplayPolicy: "no-user-gesture-required",
     });
     expect(loadFile).toHaveBeenCalledWith("/app/build/renderer/index.html");
     expect(setWindowOpenHandler).toHaveBeenCalledTimes(1);
@@ -78,6 +79,7 @@ describe("secure window creation", () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      autoplayPolicy: "no-user-gesture-required",
     });
   });
 });

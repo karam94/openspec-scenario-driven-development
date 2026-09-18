@@ -74,8 +74,8 @@ describe("makeNotifier — notification preference gating", () => {
   });
 });
 
-describe("makeNativeNotify — silent passthrough to the OS banner", () => {
-  it("passes the silent flag to the native Notification constructor", () => {
+describe("makeNativeNotify — bundled sound replaces the OS chime", () => {
+  function fakeCtor() {
     const ctorCalls: unknown[] = [];
     const show = vi.fn();
     class FakeNotification {
@@ -84,12 +84,32 @@ describe("makeNativeNotify — silent passthrough to the OS banner", () => {
       }
       show = show;
     }
-    const nativeNotify = makeNativeNotify(FakeNotification as unknown as typeof import("electron").Notification);
-    const n: BoardNotification = { repo: "r", change: "c", kind: "phase", phase: "grill", title: "T", body: "B" };
+    return { ctorCalls, show, Ctor: FakeNotification as unknown as typeof import("electron").Notification };
+  }
+
+  const n: BoardNotification = { repo: "r", change: "c", kind: "phase", phase: "grill", title: "T", body: "B" };
+
+  it("shows a silent OS banner and plays the app sound when the banner is audible", () => {
+    const { ctorCalls, show, Ctor } = fakeCtor();
+    const playSound = vi.fn();
+    const nativeNotify = makeNativeNotify(Ctor, playSound);
+
+    nativeNotify(n, { silent: false });
+
+    expect(ctorCalls[0]).toEqual({ title: "T", body: "B", silent: true });
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(playSound).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a silent OS banner and plays no sound when the banner is silent", () => {
+    const { ctorCalls, show, Ctor } = fakeCtor();
+    const playSound = vi.fn();
+    const nativeNotify = makeNativeNotify(Ctor, playSound);
 
     nativeNotify(n, { silent: true });
 
     expect(ctorCalls[0]).toEqual({ title: "T", body: "B", silent: true });
     expect(show).toHaveBeenCalledTimes(1);
+    expect(playSound).not.toHaveBeenCalled();
   });
 });

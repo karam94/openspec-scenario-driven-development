@@ -56,12 +56,15 @@ export interface WindowOpts {
 }
 
 // The secure renderer posture (ADR-0002): no direct Node in the renderer.
+// autoplayPolicy lets the renderer play the completion sound when a banner fires
+// without the window being focused; the isolation flags are unchanged.
 export function secureWebPreferences(preloadPath: string): WebPreferences {
   return {
     preload: preloadPath,
     contextIsolation: true,
     nodeIntegration: false,
     sandbox: true,
+    autoplayPolicy: "no-user-gesture-required",
   };
 }
 
@@ -195,10 +198,17 @@ export function makeNotifier(show: NativeNotify, getSetting: () => NotificationS
 }
 
 // Builds the native show from Electron's Notification constructor. main.ts passes
-// the real one; this is the only place a native OS banner is created.
-export function makeNativeNotify(NotificationCtor: typeof Notification): NativeNotify {
+// the real one. The OS banner is always created silent: when the banner is meant
+// to be audible (setting "enabled", opts.silent false) the app plays its own
+// bundled sound via `playSound` instead of the OS chime, so the completion sound
+// is consistent and shipped with the app rather than the system default.
+export function makeNativeNotify(
+  NotificationCtor: typeof Notification,
+  playSound: () => void = () => {}
+): NativeNotify {
   return (n, opts) => {
-    new NotificationCtor({ title: n.title, body: n.body, silent: opts.silent }).show();
+    new NotificationCtor({ title: n.title, body: n.body, silent: true }).show();
+    if (!opts.silent) playSound();
   };
 }
 
