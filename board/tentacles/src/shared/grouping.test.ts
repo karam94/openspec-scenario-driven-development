@@ -58,9 +58,9 @@ describe("groupWorktrees groups carded worktrees into Repository rows", () => {
 
   it("pins the primary checkout's card first within a nested group", () => {
     const groups = groupWorktrees([
-      change({ change: "feat-a", branch: "feat-a", isPrimary: false }),
-      change({ change: "master", branch: "master", isPrimary: true }),
-      change({ change: "feat-b", branch: "feat-b", isPrimary: false }),
+      change({ change: "feat-a", branch: "feat-a", isPrimary: false, repoPath: "/Code/wings-core-a" }),
+      change({ change: "master", branch: "master", isPrimary: true, repoPath: "/Code/wings-core" }),
+      change({ change: "feat-b", branch: "feat-b", isPrimary: false, repoPath: "/Code/wings-core-b" }),
     ]);
 
     expect(groups[0]?.worktrees.map((w) => w.branch)).toEqual(["master", "feat-a", "feat-b"]);
@@ -68,10 +68,33 @@ describe("groupWorktrees groups carded worktrees into Repository rows", () => {
 
   it("orders a group whose primary has no change by the default ordering only", () => {
     const groups = groupWorktrees([
-      change({ change: "feat-b", branch: "feat-b", isPrimary: false }),
-      change({ change: "feat-a", branch: "feat-a", isPrimary: false }),
+      change({ change: "feat-b", branch: "feat-b", isPrimary: false, repoPath: "/Code/wings-core-b" }),
+      change({ change: "feat-a", branch: "feat-a", isPrimary: false, repoPath: "/Code/wings-core-a" }),
     ]);
 
     expect(groups[0]?.worktrees.map((w) => w.branch)).toEqual(["feat-a", "feat-b"]);
+  });
+
+  it("keeps a lone worktree flat even when it holds more than one active change", () => {
+    const groups = groupWorktrees([
+      change({ change: "first", repoPath: "/Code/wings-core", branch: "feat-a" }),
+      change({ change: "second", repoPath: "/Code/wings-core", branch: "feat-a" }),
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.nested).toBe(false);
+    expect(groups[0]?.worktrees.map((w) => w.change)).toEqual(["first", "second"]);
+  });
+
+  it("counts nesting from distinct worktrees, not change records", () => {
+    const groups = groupWorktrees([
+      change({ change: "a1", repoPath: "/Code/wings-core-a", branch: "feat-a" }),
+      change({ change: "a2", repoPath: "/Code/wings-core-a", branch: "feat-a" }),
+      change({ change: "b1", repoPath: "/Code/wings-core-b", branch: "feat-b" }),
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.nested).toBe(true);
+    expect(groups[0]?.worktrees.map((w) => w.change)).toEqual(["a1", "a2", "b1"]);
   });
 });

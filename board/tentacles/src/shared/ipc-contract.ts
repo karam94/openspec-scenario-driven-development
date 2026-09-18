@@ -49,8 +49,10 @@ export interface Change {
   isPrimary: boolean;
 }
 
-// A Repository row: the worktrees sharing one common-dir. `nested` is true only
-// when 2+ worktrees group together, so a lone worktree renders exactly as today.
+// A Repository row: the changes carded under one common-dir. `nested` is true only
+// when 2+ distinct worktrees (distinct repoPaths) share that common-dir, so a lone
+// worktree — even one holding more than one active change — renders exactly as
+// today with no extra nesting level and no branch chips.
 export interface RepositoryGroup {
   repositoryId: string;
   repositoryName: string;

@@ -240,9 +240,9 @@ export function prForBranch(repo: string, branch: string | null): Promise<Pr | n
 
 export function branchCommits(repo: string, branch: string | null): Promise<number> {
   // No shell: git runs via execFile with an argv array, so the repo path and the
-  // branch name (parsed from a scanned repo's tasks.md, i.e. untrusted) are passed
-  // literally and can never be interpreted as shell metacharacters. Falls back
-  // from origin/HEAD to master in TS rather than a shell `||` chain.
+  // branch name (resolved from git in the scanned worktree, i.e. untrusted) are
+  // passed literally and can never be interpreted as shell metacharacters. Falls
+  // back from origin/HEAD to master in TS rather than a shell `||` chain.
   const countAgainst = (base: string): Promise<number | null> =>
     new Promise((res) => {
       execFile(
@@ -363,10 +363,10 @@ export async function shapeChange(
   const gitId = await resolveIdentity(repo);
   const branch = gitId.branch;
   const { repositoryId, repositoryName } = repositoryFields(repo, gitId);
-  const pr = planningComplete ? await prLookup(repo, branch) : null;
+  const pr = planningComplete && branch ? await prLookup(repo, branch) : null;
 
   let apply: Apply = { total: prog.total, done: prog.done, source: "tasks.md", file: null };
-  if (planningComplete && prog.total > 0 && prog.done === 0) {
+  if (planningComplete && branch && prog.total > 0 && prog.done === 0) {
     const commits = await commitCount(repo, branch);
     if (commits > 0) apply = { total: prog.total, done: null, commits, source: "commits", file: null };
   }
