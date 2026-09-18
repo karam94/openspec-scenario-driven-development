@@ -4,6 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import core from "./core";
 import type { Settings } from "./core";
+import type { EventChannelMap } from "../shared/ipc-contract";
 import {
   bootstrap,
   resolveShellPath,
@@ -18,6 +19,11 @@ import {
 } from "./wiring";
 
 const args = core.defaultArgs();
+
+// Main → renderer push channels, typed against the shared map (mirrors preload).
+const EVENTS: EventChannelMap = {
+  notificationSound: "board:notificationSound",
+};
 
 // Runs from build/main/ after compile, so preload and the renderer index resolve
 // relative to that: build/preload/preload.js and build/renderer/index.html. The
@@ -80,7 +86,10 @@ app.whenReady().then(() => {
   // change, gated on the persisted preference (read fresh per scan so a Settings
   // save takes effect without a restart).
   const notifier = makeNotifier(
-    makeNativeNotify(Notification),
+    makeNativeNotify(Notification, () => {
+      const win = BrowserWindow.getAllWindows()[0];
+      win?.webContents.send(EVENTS.notificationSound);
+    }),
     () => core.resolveNotifications(settings.read())
   );
 

@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import type { Change, ElectronAPI, Phase, StatusResult } from "../shared/ipc-contract";
 
 export function phase(id: Phase["id"], over: Partial<Phase> = {}): Phase {
-  return { id, applicable: true, done: false, files: [], ...over };
+  return { id, applicable: true, done: false, files: [], fileExists: false, ...over };
 }
 
 export function makeChange(over: Partial<Change> = {}): Change {
@@ -41,22 +41,28 @@ export function makeStatus(changes: Change[], repoCount = 1): StatusResult {
 export type MockApi = {
   getStatus: ReturnType<typeof vi.fn>;
   readFile: ReturnType<typeof vi.fn>;
+  getDiff: ReturnType<typeof vi.fn>;
+  getFileDiff: ReturnType<typeof vi.fn>;
   archive: ReturnType<typeof vi.fn>;
   getSettings: ReturnType<typeof vi.fn>;
   setSettings: ReturnType<typeof vi.fn>;
   chooseDirectory: ReturnType<typeof vi.fn>;
   openPath: ReturnType<typeof vi.fn>;
+  onNotificationSound: ReturnType<typeof vi.fn>;
 };
 
 export function mockApi(over: Partial<ElectronAPI> = {}): MockApi {
   const api = {
     getStatus: vi.fn().mockResolvedValue(makeStatus([])),
     readFile: vi.fn().mockResolvedValue({ ok: true, contents: "" }),
+    getDiff: vi.fn().mockResolvedValue({ ok: true, files: [] }),
+    getFileDiff: vi.fn().mockResolvedValue({ ok: true, files: [] }),
     archive: vi.fn().mockResolvedValue({ ok: true }),
     getSettings: vi.fn().mockResolvedValue({ root: "/Code", notifications: "enabled" }),
     setSettings: vi.fn().mockResolvedValue({ ok: true, root: "/Code", notifications: "enabled" }),
     chooseDirectory: vi.fn().mockResolvedValue({ path: null }),
     openPath: vi.fn().mockResolvedValue({ ok: true }),
+    onNotificationSound: vi.fn().mockReturnValue(() => {}),
     ...over,
   } as unknown as MockApi;
   (window as unknown as { electronAPI: ElectronAPI }).electronAPI = api as unknown as ElectronAPI;

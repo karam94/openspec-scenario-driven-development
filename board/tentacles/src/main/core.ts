@@ -20,6 +20,9 @@ import type {
   Apply,
   ArchiveResult,
   Change,
+  DiffFile,
+  DiffHunk,
+  DiffResult,
   NotificationSetting,
   Phase,
   PhaseId,
@@ -319,6 +322,247 @@ const defaultShapeDeps: ShapeDeps = {
   commitCount: branchCommits,
 };
 
+// Run a git subcommand and return its stdout, or null when the ref/command is
+// invalid and produced nothing. `git diff` finds differences and still exits 0;
+// `git diff --no-index` exits non-zero when files differ but writes the diff to
+// stdout, so a non-empty stdout always wins over the exit code. No shell: the
+// repo path and any file/ref are argv elements, never interpreted (see
+// branchCommits for the same discipline).
+function runGitText(repo: string, args: string[]): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile("git", ["-C", repo, ...args], { timeout: 8000, maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
+      const out = String(stdout ?? "");
+      if (out.length > 0) return resolve(out);
+      if (err) return resolve(null);
+      resolve("");
+    });
+  });
+}
+
+// Resolve the merge base (fork point) of the current branch against its upstream
+// base, trying origin/HEAD then master. Returns the merge-base commit sha, or null
+// when neither ref resolves. Argv-only, no shell (see branchCommits).
+async function mergeBase(repo: string): Promise<string | null> {
+  for (const base of ["origin/HEAD", "master"]) {
+    const out = await runGitText(repo, ["merge-base", base, "HEAD"]);
+    if (out !== null && out.trim()) return out.trim();
+  }
+  return null;
+}
+
+// Tracked changes as one unified diff: merge-base → working tree, i.e. exactly what
+// this branch contributes (committed-on-branch ∪ staged ∪ unstaged) while EXCLUDING
+// commits that landed on the base after the branch diverged. Comparing against the
+// base tip instead would report upstream-only files as branch removals. Falls back
+// to HEAD (working tree vs last commit) when no base ref resolves. quotePath=false
+// keeps non-ASCII paths literal in the diff headers.
+async function trackedDiff(repo: string): Promise<string> {
+  const base = await mergeBase(repo);
+  if (base) {
+    const out = await runGitText(repo, ["-c", "core.quotePath=false", "diff", base, "--"]);
+    if (out !== null) return out;
+  }
+  const head = await runGitText(repo, ["-c", "core.quotePath=false", "diff", "HEAD", "--"]);
+  return head ?? "";
+}
+
+// Untracked files are invisible to a normal diff, so each is rendered against
+// /dev/null (an all-additions diff) and concatenated. -z gives NUL-delimited,
+// unquoted paths so names with spaces, quotes, newlines, or non-ASCII survive
+// intact (no trimming); quotePath=false keeps the diff header path literal too.
+// --no-index exits 1 with the diff on stdout, which runGitText handles.
+async function untrackedDiff(repo: string): Promise<string> {
+  const list = await runGitText(repo, ["ls-files", "--others", "--exclude-standard", "-z"]);
+  const files = String(list ?? "").split("\0").filter((f) => f.length > 0);
+  const parts: string[] = [];
+  for (const f of files) {
+    const d = await runGitText(repo, ["-c", "core.quotePath=false", "diff", "--no-index", "--", "/dev/null", f]);
+    if (d) parts.push(d);
+  }
+  return parts.join("\n");
+}
+
+// Decode one git header path: strip a trailing CR, undo C-quoting (git wraps a
+// name in double-quotes and backslash-escapes control chars, `"`, and `\` — with
+// core.quotePath=false only single-byte escapes remain, so fromCharCode is exact),
+// strip the trailing TAB git appends to terminate an unquoted path that contains
+// spaces, and drop the leading a/ or b/ prefix. A legitimate trailing space in the
+// name is preserved (only the tab terminator is removed).
+function decodeGitPath(raw: string): string {
+  let s = raw.replace(/\r$/, "");
+  if (s.length >= 2 && s.startsWith('"') && s.endsWith('"')) {
+    const body = s.slice(1, -1);
+    const escapes: Record<string, string> = {
+      n: "\n", t: "\t", r: "\r", a: "\x07", b: "\b", f: "\f", v: "\v", '"': '"', "\\": "\\",
+    };
+    let out = "";
+    for (let i = 0; i < body.length; i++) {
+      if (body[i] !== "\\") { out += body[i]; continue; }
+      const n = body[i + 1] ?? "";
+      if (n >= "0" && n <= "7") {
+        out += String.fromCharCode(parseInt(body.slice(i + 1, i + 4), 8));
+        i += 3;
+      } else {
+        out += escapes[n] ?? n;
+        i += 1;
+      }
+    }
+    s = out;
+  } else {
+    s = s.replace(/\t$/, "");
+  }
+  return s.replace(/^[ab]\//, "");
+}
+
+// Pure: raw unified-diff text → structured per-file model. Status is inferred from
+// the git header lines (new file / deleted file / rename / Binary / --- +++ /dev/null),
+// each hunk's lines classified add / del / context. Index and "\ No newline" lines
+// are ignored.
+export function parseDiff(raw: string): DiffFile[] {
+  const files: DiffFile[] = [];
+  let file: DiffFile | null = null;
+  let hunk: DiffHunk | null = null;
+
+  for (const line of String(raw ?? "").split("\n")) {
+    if (line.startsWith("diff --git")) {
+      const m = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+      file = { path: m ? decodeGitPath(m[2] as string) : "", status: "modified", hunks: [] };
+      files.push(file);
+      hunk = null;
+      continue;
+    }
+    if (!file) continue;
+    if (line.startsWith("new file")) { file.status = "added"; continue; }
+    if (line.startsWith("deleted file")) { file.status = "deleted"; continue; }
+    if (line.startsWith("rename to ")) { file.status = "renamed"; file.path = decodeGitPath(line.slice(10)); continue; }
+    if (line.startsWith("rename from ")) { file.status = "renamed"; continue; }
+    if (line.startsWith("Binary files")) { file.status = "binary"; continue; }
+    if (line.startsWith("--- ")) {
+      if (line.slice(4).replace(/\r$/, "") === "/dev/null") file.status = "added";
+      continue;
+    }
+    if (line.startsWith("+++ ")) {
+      const rawPath = line.slice(4).replace(/\r$/, "");
+      if (rawPath === "/dev/null") file.status = "deleted";
+      else file.path = decodeGitPath(line.slice(4));
+      continue;
+    }
+    if (line.startsWith("@@")) {
+      hunk = { lines: [] };
+      file.hunks.push(hunk);
+      continue;
+    }
+    if (line.startsWith("\\")) continue;
+    if (!hunk) continue;
+    if (line.startsWith("+")) hunk.lines.push({ kind: "add", text: line.slice(1) });
+    else if (line.startsWith("-")) hunk.lines.push({ kind: "del", text: line.slice(1) });
+    else if (line.startsWith(" ")) hunk.lines.push({ kind: "context", text: line.slice(1) });
+  }
+  return files;
+}
+
+// Guarded branch diff: only for a currently-discovered repo (mirrors readArtifact /
+// archiveChange), returning the structured branch-vs-base ∪ working-tree model.
+export async function getDiff(args: Args, repoPath: string): Promise<DiffResult> {
+  const repos = discoverRepos(args);
+  const okRepo = repos.some((r) => path.resolve(r) === path.resolve(repoPath || ""));
+  if (!okRepo) return { ok: false, error: "unknown repo" };
+  try {
+    const raw = [await trackedDiff(repoPath), await untrackedDiff(repoPath)].filter(Boolean).join("\n");
+    return { ok: true, files: parseDiff(raw) };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+// One file's diff with its ENTIRE contents as context (merge-base → working tree),
+// so the renderer can show the whole file with the changes highlighted inline. A
+// very large --unified window means git emits every unchanged line as context
+// rather than the default three around each hunk. Falls back HEAD → untracked
+// (--no-index vs /dev/null) exactly as the whole-repo diff does. Guarded to a
+// discovered repo like getDiff; the file path is an argv element after `--`, never
+// a shell token or an option.
+async function fileDiffFullContext(repo: string, repoRoot: string, filePath: string): Promise<string> {
+  const ctx = "--unified=1000000";
+  const base = await mergeBase(repo);
+  if (base) {
+    const out = await runGitText(repo, ["-c", "core.quotePath=false", "diff", base, ctx, "--", filePath]);
+    if (out) return out;
+  }
+  const head = await runGitText(repo, ["-c", "core.quotePath=false", "diff", "HEAD", ctx, "--", filePath]);
+  if (head) return head;
+  // The tracked diffs above also read working-tree state, but git treats an
+  // outside-pointing intermediate symlink on a tracked pathspec as a deletion
+  // rather than following it off disk. The --no-index fallback is the one path
+  // that would follow such a symlink and read arbitrary bytes, so re-validate
+  // containment at the point of use, not just at entry: the file must exist as a
+  // regular file whose canonical path is still inside the repo right now. A
+  // missing path has no untracked content to show and must never reach --no-index
+  // — this closes the window where an ancestor absent at entry is created as an
+  // outside-pointing symlink before this call. Tracked deletions never get here;
+  // they resolve from git's tree above.
+  const safe = containedRealPath(repoRoot, filePath);
+  if (!safe) return "";
+  let stat: fs.Stats;
+  try {
+    stat = fs.lstatSync(safe);
+  } catch {
+    return "";
+  }
+  if (!stat.isFile()) return "";
+  const untracked = await runGitText(repo, ["-c", "core.quotePath=false", "diff", "--no-index", ctx, "--", "/dev/null", filePath]);
+  return untracked ?? "";
+}
+
+// Canonicalize a repo-relative path for containment. path.resolve is lexical, so a
+// symlinked directory inside the repo whose real target is outside would slip past a
+// prefix check; realpath dereferences it. The requested file may not exist yet
+// (deleted/untracked cases still reach git), so canonicalize the nearest existing
+// ancestor and re-append the missing tail. Returns null when the real target escapes
+// the repo's real root.
+function containedRealPath(repoRoot: string, filePath: string): string | null {
+  let root: string;
+  try {
+    root = fs.realpathSync(repoRoot);
+  } catch {
+    return null;
+  }
+  const target = path.resolve(root, filePath);
+  let existing = target;
+  const tail: string[] = [];
+  while (!fs.existsSync(existing)) {
+    tail.unshift(path.basename(existing));
+    const parent = path.dirname(existing);
+    if (parent === existing) break;
+    existing = parent;
+  }
+  let canonical: string;
+  try {
+    canonical = fs.realpathSync(existing);
+  } catch {
+    return null;
+  }
+  const full = tail.length ? path.join(canonical, ...tail) : canonical;
+  if (full !== root && !full.startsWith(root + path.sep)) return null;
+  return full;
+}
+
+export async function getFileDiff(args: Args, repoPath: string, filePath: string): Promise<DiffResult> {
+  const repos = discoverRepos(args);
+  const okRepo = repos.some((r) => path.resolve(r) === path.resolve(repoPath || ""));
+  if (!okRepo) return { ok: false, error: "unknown repo" };
+  if (!filePath) return { ok: false, error: "no file" };
+  const repoRoot = path.resolve(repoPath);
+  const canonical = containedRealPath(repoRoot, filePath);
+  if (!canonical) return { ok: false, error: "path outside repo" };
+  const relFile = path.relative(fs.realpathSync(repoRoot), canonical);
+  try {
+    return { ok: true, files: parseDiff(await fileDiffFullContext(repoPath, repoRoot, relFile)) };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 export async function shapeChange(
   repo: string,
   change: string,
@@ -350,6 +594,7 @@ export async function shapeChange(
       applicable,
       done,
       files,
+      fileExists: existing.length > 0,
     };
   });
   const nextIdx = phases.findIndex((p) => p.applicable && !p.done);
@@ -664,6 +909,9 @@ export default {
   changeType,
   prForBranch,
   branchCommits,
+  parseDiff,
+  getDiff,
+  getFileDiff,
   shapeChange,
   computeNotifications,
   parseSettings,

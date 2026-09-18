@@ -10,6 +10,10 @@ export interface Phase {
   applicable: boolean;
   done: boolean;
   files: string[];
+  // The phase's own artifact is on disk. Decoupled from `done`, which keys on
+  // the NEXT artifact (ADR-0004): an in-progress artifact awaiting review still
+  // has its file, so it stays openable.
+  fileExists: boolean;
   inProgress?: boolean;
 }
 
@@ -71,6 +75,25 @@ export interface ArchiveArgs {
 export type ArchiveResult = { ok: true } | { ok: false; error: string };
 export type ReadFileResult = { ok: true; contents: string } | { ok: false; error: string };
 
+// A branch diff, structured before it crosses IPC (ADR-0002): the renderer paints
+// data, never tints raw text. Each line is classified so the renderer maps kind →
+// colour without re-parsing.
+export type DiffLineKind = "add" | "del" | "context";
+export interface DiffLine {
+  kind: DiffLineKind;
+  text: string;
+}
+export interface DiffHunk {
+  lines: DiffLine[];
+}
+export type DiffFileStatus = "added" | "deleted" | "modified" | "renamed" | "binary";
+export interface DiffFile {
+  path: string;
+  status: DiffFileStatus;
+  hunks: DiffHunk[];
+}
+export type DiffResult = { ok: true; files: DiffFile[] } | { ok: false; error: string };
+
 export interface BoardSettings {
   root: string;
   notifications: NotificationSetting;
@@ -104,6 +127,8 @@ export type OpenPathResult = { ok: true } | { ok: false; error: string };
 export interface ChannelMap {
   getStatus: "board:getStatus";
   readFile: "board:readFile";
+  getDiff: "board:getDiff";
+  getFileDiff: "board:getFileDiff";
   archive: "board:archive";
   getSettings: "board:getSettings";
   setSettings: "board:setSettings";
@@ -113,14 +138,27 @@ export interface ChannelMap {
 
 export type Channel = ChannelMap[keyof ChannelMap];
 
+// Main → renderer push channels (webContents.send). Unlike the invoke channels
+// above these carry no payload and expect no reply; the renderer subscribes via
+// the ElectronAPI surface. notificationSound tells the renderer to play the
+// bundled completion sound, fired only when a banner is shown with sound.
+export interface EventChannelMap {
+  notificationSound: "board:notificationSound";
+}
+
+export type EventChannel = EventChannelMap[keyof EventChannelMap];
+
 // The surface preload exposes on window.electronAPI; declared onto Window in the
 // renderer's global.d.ts so components get typed access rather than `any`.
 export interface ElectronAPI {
   getStatus(): Promise<StatusResult>;
   readFile(filePath: string): Promise<ReadFileResult>;
+  getDiff(repoPath: string): Promise<DiffResult>;
+  getFileDiff(repoPath: string, filePath: string): Promise<DiffResult>;
   archive(payload: ArchiveArgs): Promise<ArchiveResult>;
   getSettings(): Promise<BoardSettings>;
   setSettings(payload: SetSettingsArgs): Promise<SetSettingsResult>;
   chooseDirectory(): Promise<ChooseDirectoryResult>;
   openPath(target: string): Promise<OpenPathResult>;
+  onNotificationSound(handler: () => void): () => void;
 }

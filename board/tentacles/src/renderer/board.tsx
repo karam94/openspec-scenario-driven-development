@@ -3,9 +3,10 @@ import type { Change, Phase } from "../shared/ipc-contract";
 
 interface WithOpen {
   openArtifacts: (files: string[]) => void;
+  openDiff: (repoPath: string) => void;
 }
 
-function PhaseNode({ p, openArtifacts }: { p: Phase } & WithOpen) {
+function PhaseNode({ p, openArtifacts }: { p: Phase; openArtifacts: (files: string[]) => void }) {
   if (!p.applicable) {
     return (
       <div className="node na">
@@ -15,8 +16,11 @@ function PhaseNode({ p, openArtifacts }: { p: Phase } & WithOpen) {
     );
   }
   if (p.inProgress) {
+    const openable = p.fileExists && p.files.length > 0;
+    const cls = openable ? "node progress clickable" : "node progress";
+    const onClick = openable ? () => openArtifacts(p.files) : undefined;
     return (
-      <div className="node progress">
+      <div className={cls} onClick={onClick}>
         <div className="phase">{p.id}</div>
         <div className="state">
           <span className="spinner" />
@@ -35,7 +39,7 @@ function PhaseNode({ p, openArtifacts }: { p: Phase } & WithOpen) {
   );
 }
 
-function ApplyNode({ c, openArtifacts }: { c: Change } & WithOpen) {
+function ApplyNode({ c, openArtifacts, openDiff }: { c: Change } & WithOpen) {
   const a = c.apply;
   const spin = c.applying ? <span className="spinner" /> : null;
   let label: React.ReactNode;
@@ -56,10 +60,23 @@ function ApplyNode({ c, openArtifacts }: { c: Change } & WithOpen) {
   }
   const cls = c.applyDone ? "done clickable" : c.applying ? "progress" : "pending";
   const onClick = a.file ? () => openArtifacts([a.file as string]) : undefined;
+  const showDiff = c.applying || c.applyDone;
   return (
     <div className={`node ${cls}`} onClick={onClick}>
       <div className="phase">apply</div>
       <div className="state">{label}</div>
+      {showDiff && (
+        <button
+          className="git-btn"
+          title="View branch diff"
+          onClick={(e) => {
+            e.stopPropagation();
+            openDiff(c.repoPath);
+          }}
+        >
+          ±
+        </button>
+      )}
     </div>
   );
 }
@@ -115,6 +132,7 @@ export function ChangeCard({
   c,
   showBranch,
   openArtifacts,
+  openDiff,
   onArchive,
   busy,
   removing,
@@ -163,7 +181,7 @@ export function ChangeCard({
           </Fragment>
         ))}
         <div className="arrow">→</div>
-        <ApplyNode c={c} openArtifacts={openArtifacts} />
+        <ApplyNode c={c} openArtifacts={openArtifacts} openDiff={openDiff} />
         <div className="arrow">→</div>
         <ReviewNode c={c} />
         <div className="arrow">→</div>
@@ -181,6 +199,7 @@ export function RepoGroup({
   collapsed,
   onToggle,
   openArtifacts,
+  openDiff,
   onArchive,
   archivingKeys,
   removingKeys,
@@ -214,6 +233,7 @@ export function RepoGroup({
               c={c}
               showBranch={nested}
               openArtifacts={openArtifacts}
+              openDiff={openDiff}
               onArchive={onArchive}
               busy={archivingKeys.has(k)}
               removing={removingKeys.has(k)}

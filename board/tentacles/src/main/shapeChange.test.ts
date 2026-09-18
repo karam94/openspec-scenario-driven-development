@@ -17,7 +17,7 @@ function statusWith(present: PhaseId[], isPlanningComplete = false) {
   return { schemaName: "atdd-driven", isPlanningComplete, artifactPaths };
 }
 
-const byId = (phases: { id: PhaseId; done: boolean; inProgress?: boolean }[]) =>
+const byId = (phases: { id: PhaseId; done: boolean; inProgress?: boolean; fileExists: boolean }[]) =>
   Object.fromEntries(phases.map((p) => [p.id, p]));
 
 describe("shapeChange — a phase is complete when the next artifact exists", () => {
@@ -43,6 +43,19 @@ describe("shapeChange — a phase is complete when the next artifact exists", ()
     expect(p.proposal.done).toBe(false);
     expect(p.proposal.inProgress).toBe(true);
     expect(p.specs.done).toBe(false);
+  });
+
+  it("reports fileExists for an artifact on disk even while the phase is in-progress", async () => {
+    const c = await shapeChange("/nope/repo", "c", statusWith(["grill", "proposal"]));
+    const p = byId(c.phases);
+
+    // proposal.md is on disk but the phase is still in-progress (done keys on the
+    // next artifact) — fileExists must be true so the UI keeps it openable.
+    expect(p.proposal.inProgress).toBe(true);
+    expect(p.proposal.fileExists).toBe(true);
+    // an in-progress phase whose own artifact is NOT yet on disk stays false.
+    expect(p.specs.fileExists).toBe(false);
+    expect(p.grill.fileExists).toBe(true);
   });
 
   it("marks specs complete once design.md exists", async () => {

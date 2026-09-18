@@ -20,6 +20,7 @@ import type {
   Change,
   ChannelMap,
   ChooseDirectoryResult,
+  DiffResult,
   ReadFileResult,
   OpenPathResult,
   SetSettingsArgs,
@@ -33,6 +34,8 @@ import type {
 export const IPC: ChannelMap = {
   getStatus: "board:getStatus",
   readFile: "board:readFile",
+  getDiff: "board:getDiff",
+  getFileDiff: "board:getFileDiff",
   archive: "board:archive",
   getSettings: "board:getSettings",
   setSettings: "board:setSettings",
@@ -44,6 +47,8 @@ export const IPC: ChannelMap = {
 export interface BoardCore {
   getStatus(args: Args): Promise<StatusResult>;
   readArtifact(args: Args, filePath: string): ReadFileResult;
+  getDiff(args: Args, repoPath: string): Promise<DiffResult>;
+  getFileDiff(args: Args, repoPath: string, filePath: string): Promise<DiffResult>;
   archiveChange(args: Args, repoPath: string, change: string): Promise<ArchiveResult>;
   openWorktree(args: Args, target: string, opener: OpenPath): Promise<OpenPathResult>;
 }
@@ -59,12 +64,15 @@ export interface WindowOpts {
 }
 
 // The secure renderer posture (ADR-0002): no direct Node in the renderer.
+// autoplayPolicy lets the renderer play the completion sound when a banner fires
+// without the window being focused; the isolation flags are unchanged.
 export function secureWebPreferences(preloadPath: string): WebPreferences {
   return {
     preload: preloadPath,
     contextIsolation: true,
     nodeIntegration: false,
     sandbox: true,
+    autoplayPolicy: "no-user-gesture-required",
   };
 }
 
@@ -122,6 +130,9 @@ export function makeHandlers(
       return result;
     },
     readFile: (_event: IpcMainInvokeEvent, filePath: string) => core.readArtifact(getArgs(), filePath),
+    getDiff: (_event: IpcMainInvokeEvent, repoPath: string) => core.getDiff(getArgs(), repoPath),
+    getFileDiff: (_event: IpcMainInvokeEvent, repoPath: string, filePath: string) =>
+      core.getFileDiff(getArgs(), repoPath, filePath),
     archive: (_event: IpcMainInvokeEvent, payload: ArchiveArgs | undefined) => {
       const { repoPath, change } = payload || ({} as Partial<ArchiveArgs>);
       return core.archiveChange(getArgs(), repoPath as string, change as string);
@@ -161,6 +172,8 @@ export function registerIpc(
   const handlers = makeHandlers(core, getArgs, observe, settings, chooseDirectory, openPath);
   ipcMain.handle(IPC.getStatus, handlers.getStatus);
   ipcMain.handle(IPC.readFile, handlers.readFile);
+  ipcMain.handle(IPC.getDiff, handlers.getDiff);
+  ipcMain.handle(IPC.getFileDiff, handlers.getFileDiff);
   ipcMain.handle(IPC.archive, handlers.archive);
   ipcMain.handle(IPC.getSettings, handlers.getSettings);
   ipcMain.handle(IPC.setSettings, handlers.setSettings);
@@ -211,10 +224,17 @@ export function makeNotifier(show: NativeNotify, getSetting: () => NotificationS
 }
 
 // Builds the native show from Electron's Notification constructor. main.ts passes
-// the real one; this is the only place a native OS banner is created.
-export function makeNativeNotify(NotificationCtor: typeof Notification): NativeNotify {
+// the real one. The OS banner is always created silent: when the banner is meant
+// to be audible (setting "enabled", opts.silent false) the app plays its own
+// bundled sound via `playSound` instead of the OS chime, so the completion sound
+// is consistent and shipped with the app rather than the system default.
+export function makeNativeNotify(
+  NotificationCtor: typeof Notification,
+  playSound: () => void = () => {}
+): NativeNotify {
   return (n, opts) => {
-    new NotificationCtor({ title: n.title, body: n.body, silent: opts.silent }).show();
+    new NotificationCtor({ title: n.title, body: n.body, silent: true }).show();
+    if (!opts.silent) playSound();
   };
 }
 
