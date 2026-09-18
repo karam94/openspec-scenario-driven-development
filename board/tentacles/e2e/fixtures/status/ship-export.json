@@ -4,7 +4,7 @@
   "artifactPaths": {
     "grill": { "outputPath": "grill.md", "resolvedOutputPath": "__REPO__/openspec/changes/ship-export/grill.md", "existingOutputPaths": ["__REPO__/openspec/changes/ship-export/grill.md"] },
     "proposal": { "outputPath": "proposal.md", "resolvedOutputPath": "__REPO__/openspec/changes/ship-export/proposal.md", "existingOutputPaths": ["__REPO__/openspec/changes/ship-export/proposal.md"] },
-    "specs": { "outputPath": "specs/**/*.md", "resolvedOutputPath": "__REPO__/openspec/changes/ship-export/specs/main/spec.md", "existingOutputPaths": ["__REPO__/openspec/changes/ship-export/specs/main/spec.md"] },
+    "specs": { "outputPath": "specs/**/*.md", "resolvedOutputPath": "__REPO__/openspec/changes/ship-export/specs/csv-export/spec.md", "existingOutputPaths": ["__REPO__/openspec/changes/ship-export/specs/csv-export/spec.md", "__REPO__/openspec/changes/ship-export/specs/pdf-export/spec.md"] },
     "design": { "outputPath": "design.md", "resolvedOutputPath": "__REPO__/openspec/changes/ship-export/design.md", "existingOutputPaths": ["__REPO__/openspec/changes/ship-export/design.md"] },
     "tasks": { "outputPath": "tasks.md", "resolvedOutputPath": "__REPO__/openspec/changes/ship-export/tasks.md", "existingOutputPaths": ["__REPO__/openspec/changes/ship-export/tasks.md"] }
   }

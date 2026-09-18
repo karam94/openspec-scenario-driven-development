@@ -8,7 +8,7 @@ function changeWithFile() {
   return makeChange({
     change: "file-demo",
     phases: [
-      phase("grill", { done: true, file: "/repo/openspec/changes/x/proposal.md" }),
+      phase("grill", { done: true, files: ["/repo/openspec/changes/x/proposal.md"] }),
       phase("proposal"),
       phase("specs"),
       phase("design"),
@@ -47,6 +47,63 @@ describe("file modal", () => {
 
     await waitFor(() => expect(document.querySelector(".modal-body")?.textContent).toBe(evil));
     expect(document.querySelector(".modal-body script")).toBeNull();
+  });
+
+  it("renders markdown as formatted elements (heading, list, task list, table)", async () => {
+    const md = [
+      "# Title",
+      "",
+      "- one",
+      "- two",
+      "",
+      "- [ ] todo",
+      "- [x] done",
+      "",
+      "| a | b |",
+      "| - | - |",
+      "| 1 | 2 |",
+    ].join("\n");
+    mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([changeWithFile()])),
+      readFile: vi.fn().mockResolvedValue({ ok: true, contents: md }),
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await screen.findByText("file-demo");
+    await user.click(screen.getByText("grill"));
+
+    await waitFor(() => expect(document.querySelector(".modal-body h1")).toBeInTheDocument());
+    expect(document.querySelector(".modal-body h1")?.textContent).toBe("Title");
+    expect(document.querySelector(".modal-body ul")).toBeTruthy();
+    expect(document.querySelector(".modal-body table")).toBeTruthy();
+    // remark-gfm task list → checkbox inputs, not literal "[ ]" text
+    expect(document.querySelector('.modal-body input[type="checkbox"]')).toBeTruthy();
+    // not raw markdown source
+    expect(document.querySelector(".modal-body")?.textContent).not.toContain("# Title");
+  });
+
+  it("renders links as external-only anchors so they cannot navigate the board window", async () => {
+    mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([changeWithFile()])),
+      readFile: vi.fn().mockResolvedValue({ ok: true, contents: "See [the docs](https://example.com/x)." }),
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await screen.findByText("file-demo");
+    await user.click(screen.getByText("grill"));
+
+    const link = await waitFor(() => {
+      const a = document.querySelector(".modal-body a") as HTMLAnchorElement | null;
+      expect(a).not.toBeNull();
+      return a as HTMLAnchorElement;
+    });
+    // target=_blank routes the click through the main window-open handler (external,
+    // https-only, child-window denied) instead of navigating the privileged window.
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.getAttribute("href")).toBe("https://example.com/x");
   });
 
   it("closes on Escape, overlay click, and the close control", async () => {

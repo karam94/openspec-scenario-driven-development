@@ -1,4 +1,4 @@
-// Type-only IPC contract: the single source of truth for the three board
+// Type-only IPC contract: the single source of truth for the five board
 // channels and their payload/result shapes. Everything here is a type, so it
 // erases at compile and adds no runtime coupling between the CJS main bundle
 // and the Vite renderer bundle.
@@ -9,7 +9,7 @@ export interface Phase {
   id: PhaseId;
   applicable: boolean;
   done: boolean;
-  file: string | null;
+  files: string[];
   inProgress?: boolean;
 }
 
@@ -51,6 +51,14 @@ export interface ArchiveArgs {
 export type ArchiveResult = { ok: true } | { ok: false; error: string };
 export type ReadFileResult = { ok: true; contents: string } | { ok: false; error: string };
 
+export interface BoardSettings {
+  root: string;
+}
+export interface SetSettingsArgs {
+  root: string;
+}
+export type SetSettingsResult = { ok: true; root: string } | { ok: false; error: string };
+
 // Exact method → channel-name mapping: the single source of truth for the
 // boundary. Both the preload bridge and the main-process IPC registry are typed
 // against it, so a typo, a missing channel, OR a swap (mapping a method to a
@@ -59,6 +67,8 @@ export interface ChannelMap {
   getStatus: "board:getStatus";
   readFile: "board:readFile";
   archive: "board:archive";
+  getSettings: "board:getSettings";
+  setSettings: "board:setSettings";
 }
 
 export type Channel = ChannelMap[keyof ChannelMap];
@@ -69,4 +79,6 @@ export interface ElectronAPI {
   getStatus(): Promise<StatusResult>;
   readFile(filePath: string): Promise<ReadFileResult>;
   archive(payload: ArchiveArgs): Promise<ArchiveResult>;
+  getSettings(): Promise<BoardSettings>;
+  setSettings(payload: SetSettingsArgs): Promise<SetSettingsResult>;
 }

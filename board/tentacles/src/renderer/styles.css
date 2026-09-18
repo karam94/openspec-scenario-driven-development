@@ -16,6 +16,8 @@ html[data-theme="light"] {
 }
 .theme-btn { border:1px solid var(--border); background:none; color:var(--muted); font-size:0.9rem; padding:3px 10px; border-radius:6px; cursor:pointer; line-height:1; }
 .theme-btn:hover { border-color:var(--accent); color:var(--accent); }
+.settings-btn { border:1px solid var(--border); background:none; color:var(--muted); font-size:0.9rem; padding:3px 10px; border-radius:6px; cursor:pointer; line-height:1; }
+.settings-btn:hover { border-color:var(--accent); color:var(--accent); }
 .pr-node { text-decoration:none; color:inherit; }
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--fg); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; }
@@ -76,4 +78,28 @@ main { padding:20px 24px 60px; max-width:1200px; margin:0 auto; }
 .modal-head { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); }
 .modal-title { font-family:ui-monospace,monospace; font-size:0.82rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .modal-x { cursor:pointer; border:none; background:none; color:var(--fg); font-size:1.3rem; line-height:1; padding:2px 8px; }
-.modal-body { overflow:auto; padding:16px; margin:0; font-family:ui-monospace,monospace; font-size:0.8rem; white-space:pre-wrap; word-break:break-word; }
+.modal-body { overflow:auto; padding:16px 20px; margin:0; font-size:0.86rem; line-height:1.55; color:var(--fg); word-break:break-word; }
+.modal-body h1, .modal-body h2, .modal-body h3, .modal-body h4 { margin:1.1em 0 0.5em; line-height:1.25; }
+.modal-body h1 { font-size:1.35rem; } .modal-body h2 { font-size:1.15rem; } .modal-body h3 { font-size:1.02rem; }
+.modal-body :first-child { margin-top:0; }
+.modal-body p { margin:0.6em 0; }
+.modal-body ul, .modal-body ol { margin:0.6em 0; padding-left:1.5em; }
+.modal-body li { margin:0.2em 0; }
+.modal-body li input[type="checkbox"] { margin-right:0.5em; }
+.modal-body code { font-family:ui-monospace,monospace; font-size:0.85em; background:var(--surface-2,rgba(127,127,127,0.15)); padding:0.1em 0.35em; border-radius:4px; }
+.modal-body pre { background:var(--surface-2,rgba(127,127,127,0.15)); padding:12px; border-radius:8px; overflow:auto; }
+.modal-body pre code { background:none; padding:0; }
+.modal-body table { border-collapse:collapse; margin:0.8em 0; font-size:0.82rem; }
+.modal-body th, .modal-body td { border:1px solid var(--border); padding:6px 10px; text-align:left; }
+.modal-body blockquote { margin:0.6em 0; padding-left:1em; border-left:3px solid var(--border); color:var(--muted); }
+.modal-body a { color:var(--accent,#6ea8fe); }
+
+.settings-modal { max-width:560px; }
+.settings-body { padding:18px 20px; display:flex; flex-direction:column; gap:10px; }
+.settings-label { font-size:0.85rem; color:var(--muted); }
+.settings-input { font-family:ui-monospace,monospace; font-size:0.85rem; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg); }
+.settings-input:focus { outline:none; border-color:var(--accent); }
+.settings-error { color:#f87171; font-size:0.82rem; }
+.settings-actions { display:flex; justify-content:flex-end; margin-top:4px; }
+.settings-save { border:1px solid var(--accent); background:var(--accent); color:#fff; font-size:0.85rem; padding:6px 16px; border-radius:6px; cursor:pointer; }
+.settings-save:disabled { opacity:0.6; cursor:default; }

@@ -25,6 +25,13 @@ export const test = base.extend<{ app: HermeticApp }>({
     );
     fs.writeFileSync(stubLog, "");
 
+    // Isolated settings file per test so a persisted scan root never leaks across
+    // tests (a leaked root would override the injected TENTACLES_ROOT below).
+    const settingsFile = path.join(
+      os.tmpdir(),
+      `tentacles-e2e-settings-${testInfo.testId}-${Date.now()}.json`
+    );
+
     // On a normal macOS login session Electron launches under its OS sandbox as a
     // user runs it. On a restricted/headless host (CI, a sandboxed shell) that OS
     // sandbox can't initialise, so opt in to --no-sandbox there via E2E_NO_SANDBOX.
@@ -42,6 +49,8 @@ export const test = base.extend<{ app: HermeticApp }>({
         TENTACLES_DEPTH: "5",
         // Seam 2: skip login-shell PATH resolution so the stub-bin PATH below survives.
         TENTACLES_E2E: "1",
+        // Isolated settings store for this test (absent until a Settings save writes it).
+        TENTACLES_SETTINGS: settingsFile,
         // Stub bin FIRST so `openspec`/`gh` resolve to the stubs. If seam 2 regressed,
         // resolveShellPath would REPLACE PATH with the login shell's (no stub bin),
         // the real CLIs would run, and the stub log would stay empty.
@@ -69,6 +78,11 @@ export const test = base.extend<{ app: HermeticApp }>({
     await electronApp.close();
     try {
       fs.unlinkSync(stubLog);
+    } catch {
+      /* best effort */
+    }
+    try {
+      fs.unlinkSync(settingsFile);
     } catch {
       /* best effort */
     }

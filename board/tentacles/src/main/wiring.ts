@@ -8,9 +8,22 @@
  */
 
 import { execFile } from "node:child_process";
-import type { App, BrowserWindow, IpcMain, IpcMainInvokeEvent, WebPreferences } from "electron";
-import type { Args } from "./core";
-import type { ArchiveArgs, ArchiveResult, ChannelMap, ReadFileResult, StatusResult } from "../shared/ipc-contract";
+import fs from "node:fs";
+import path from "node:path";
+import type { App, BrowserWindow, IpcMain, IpcMainInvokeEvent, Notification, WebPreferences } from "electron";
+import { computeNotifications, parseSettings, validateRoot, dirExists } from "./core";
+import type { Args, BoardNotification, NotifyState, Settings } from "./core";
+import type {
+  ArchiveArgs,
+  ArchiveResult,
+  BoardSettings,
+  Change,
+  ChannelMap,
+  ReadFileResult,
+  SetSettingsArgs,
+  SetSettingsResult,
+  StatusResult,
+} from "../shared/ipc-contract";
 
 // IPC channel names. preload.ts hardcodes the same string literals (a sandboxed
 // preload cannot import this module); both are typed against the shared
@@ -19,6 +32,8 @@ export const IPC: ChannelMap = {
   getStatus: "board:getStatus",
   readFile: "board:readFile",
   archive: "board:archive",
+  getSettings: "board:getSettings",
+  setSettings: "board:setSettings",
 };
 
 // The subset of core the handlers depend on.
@@ -44,25 +59,107 @@ export function secureWebPreferences(preloadPath: string): WebPreferences {
   };
 }
 
-// The three privileged operations, each backed by core. `getArgs` is a getter
-// so the scan args are read fresh per call.
-export function makeHandlers(core: BoardCore, getArgs: () => Args) {
+// The scan root is user-settable and persisted to settings.json. `SettingsDeps`
+// gives the handlers a way to read/write the file and read/mutate the live scan
+// root, injected so the tested handler logic never touches disk directly.
+export interface SettingsDeps {
+  read: () => Settings;
+  write: (settings: Settings) => void;
+  getRoot: () => string;
+  setRoot: (root: string) => void;
+  isDir?: (p: string) => boolean;
+  home?: string;
+}
+
+// The privileged operations, each backed by core. `getArgs` is a getter
+// so the scan args are read fresh per call. `observe` (optional) is handed each
+// scan's changes so completion notifications can fire main-side. `settings`
+// (optional) backs the getSettings/setSettings channels.
+export function makeHandlers(
+  core: BoardCore,
+  getArgs: () => Args,
+  observe?: (changes: Change[]) => void,
+  settings?: SettingsDeps
+) {
   return {
-    getStatus: () => core.getStatus(getArgs()),
+    getStatus: async () => {
+      const result = await core.getStatus(getArgs());
+      if (observe && !("error" in result)) observe(result.changes);
+      return result;
+    },
     readFile: (_event: IpcMainInvokeEvent, filePath: string) => core.readArtifact(getArgs(), filePath),
     archive: (_event: IpcMainInvokeEvent, payload: ArchiveArgs | undefined) => {
       const { repoPath, change } = payload || ({} as Partial<ArchiveArgs>);
       return core.archiveChange(getArgs(), repoPath as string, change as string);
     },
+    getSettings: (): BoardSettings => ({ root: settings ? settings.getRoot() : getArgs().root }),
+    setSettings: (_event: IpcMainInvokeEvent, payload: SetSettingsArgs | undefined): SetSettingsResult => {
+      if (!settings) return { ok: false, error: "settings unavailable" };
+      const res = validateRoot(payload?.root ?? "", settings.isDir ?? dirExists, settings.home);
+      if (!res.ok) return res;
+      settings.write({ root: res.root });
+      settings.setRoot(res.root);
+      return { ok: true, root: res.root };
+    },
   };
 }
 
-export function registerIpc(ipcMain: IpcMain, core: BoardCore, getArgs: () => Args) {
-  const handlers = makeHandlers(core, getArgs);
+export function registerIpc(
+  ipcMain: IpcMain,
+  core: BoardCore,
+  getArgs: () => Args,
+  observe?: (changes: Change[]) => void,
+  settings?: SettingsDeps
+) {
+  const handlers = makeHandlers(core, getArgs, observe, settings);
   ipcMain.handle(IPC.getStatus, handlers.getStatus);
   ipcMain.handle(IPC.readFile, handlers.readFile);
   ipcMain.handle(IPC.archive, handlers.archive);
+  ipcMain.handle(IPC.getSettings, handlers.getSettings);
+  ipcMain.handle(IPC.setSettings, handlers.setSettings);
   return handlers;
+}
+
+// settings.json lives under the app's userData, overridable via TENTACLES_SETTINGS
+// so the e2e harness can point each run at an isolated temp file.
+export function settingsFilePath(app: App, env: NodeJS.ProcessEnv = process.env): string {
+  return env.TENTACLES_SETTINGS || path.join(app.getPath("userData"), "settings.json");
+}
+
+export function readSettingsFile(filePath: string): Settings {
+  try {
+    return parseSettings(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+export function writeSettingsFile(filePath: string, settings: Settings): void {
+  fs.writeFileSync(filePath, JSON.stringify(settings, null, 2));
+}
+
+// Completion-notification glue: holds the last-seen state across scans and shows
+// a native notification per decided edge. The decision (computeNotifications) is
+// unit-tested in core; the native `show` is the untested boundary.
+export type NativeNotify = (n: BoardNotification) => void;
+
+export function makeNotifier(show: NativeNotify) {
+  let state: NotifyState | null = null;
+  return {
+    observe(changes: Change[]): void {
+      const { next, notifications } = computeNotifications(state, changes);
+      state = next;
+      for (const n of notifications) show(n);
+    },
+  };
+}
+
+// Builds the native show from Electron's Notification constructor. main.ts passes
+// the real one; this is the only place a native OS banner is created.
+export function makeNativeNotify(NotificationCtor: typeof Notification): NativeNotify {
+  return (n) => {
+    new NotificationCtor({ title: n.title, body: n.body }).show();
+  };
 }
 
 // External links (the board's PR link uses target="_blank") must open in the
@@ -114,6 +211,8 @@ export interface BootstrapDeps {
   resolvePath: () => Promise<unknown>;
   windowOpts: WindowOpts;
   platform?: NodeJS.Platform;
+  observe?: (changes: Change[]) => void;
+  settings?: SettingsDeps;
 }
 
 // Ordered startup coordinator. Registers IPC handlers BEFORE any window can call
@@ -129,8 +228,10 @@ export async function bootstrap({
   resolvePath,
   windowOpts,
   platform = process.platform,
+  observe,
+  settings,
 }: BootstrapDeps) {
-  registerIpc(ipcMain, core, getArgs);
+  registerIpc(ipcMain, core, getArgs, observe, settings);
   const windows = makeWindowManager(BrowserWindowCtor, windowOpts);
   let started = false;
 

@@ -218,7 +218,7 @@ export function changeBranch(repo: string, change: string): string | null {
   const p = path.join(repo, "openspec", "changes", change, "tasks.md");
   try {
     const text = fs.readFileSync(p, "utf8");
-    const m = text.match(/branch\s*[`'"]([^`'"\s]+)[`'"]/i);
+    const m = text.match(/^[ \t]*branch[ \t]*(?:[:=][ \t]*)?[`'"]([^`'"\s]+)[`'"]/im);
     if (m) return m[1] ?? null;
   } catch {
     /* none */
@@ -248,28 +248,58 @@ export function prForBranch(repo: string, branch: string | null): Promise<Pr | n
 }
 
 export function branchCommits(repo: string, branch: string | null): Promise<number> {
-  return new Promise((resolve) => {
-    if (!branch) return resolve(0);
-    execFile(
-      "bash",
-      ["-c", `git -C '${repo}' rev-list --count ${branch} ^origin/HEAD 2>/dev/null || git -C '${repo}' rev-list --count ${branch} ^master 2>/dev/null || echo 0`],
-      { timeout: 8000 },
-      (err, stdout) => resolve(err ? 0 : parseInt(String(stdout).trim(), 10) || 0)
-    );
-  });
+  // No shell: git runs via execFile with an argv array, so the repo path and the
+  // branch name (parsed from a scanned repo's tasks.md, i.e. untrusted) are passed
+  // literally and can never be interpreted as shell metacharacters. Falls back
+  // from origin/HEAD to master in TS rather than a shell `||` chain.
+  const countAgainst = (base: string): Promise<number | null> =>
+    new Promise((res) => {
+      execFile(
+        "git",
+        ["-C", repo, "rev-list", "--count", branch as string, `^${base}`],
+        { timeout: 8000 },
+        (err, stdout) => {
+          if (err) return res(null);
+          const n = parseInt(String(stdout).trim(), 10);
+          res(Number.isFinite(n) ? n : null);
+        }
+      );
+    });
+
+  return (async () => {
+    if (!branch) return 0;
+    const primary = await countAgainst("origin/HEAD");
+    if (primary !== null) return primary;
+    const fallback = await countAgainst("master");
+    return fallback ?? 0;
+  })();
 }
 
 export async function shapeChange(repo: string, change: string, status: RawStatus | null): Promise<Change> {
   const artifactPaths = (status && status.artifactPaths) || {};
+  const planningComplete = !!(status && status.isPlanningComplete);
+  const ownExists = (id: PhaseId): boolean =>
+    ((artifactPaths[id]?.existingOutputPaths || []).filter(Boolean) as string[]).length > 0;
+
+  // A planning phase is complete when the NEXT applicable artifact exists — not
+  // when its own artifact exists (grill.md is written mid-interview, so keying on
+  // it marks grill done while grilling is still ongoing). The last applicable
+  // planning phase has no successor, so it falls back to isPlanningComplete. See
+  // ADR-0004.
+  const applicableIds = PHASES.filter((id) => id in artifactPaths);
   const phases: Phase[] = PHASES.map((id) => {
     const ap = artifactPaths[id] || {};
     const existing = (ap.existingOutputPaths || []).filter(Boolean) as string[];
     const applicable = id in artifactPaths;
+    const pos = applicableIds.indexOf(id);
+    const nextId = pos >= 0 ? applicableIds[pos + 1] : undefined;
+    const done = !applicable ? false : nextId ? ownExists(nextId) : planningComplete;
+    const files = existing.length ? existing : ap.resolvedOutputPath ? [ap.resolvedOutputPath] : [];
     return {
       id,
       applicable,
-      done: existing.length > 0,
-      file: existing[0] || (ap.resolvedOutputPath ?? null),
+      done,
+      files,
     };
   });
   const nextIdx = phases.findIndex((p) => p.applicable && !p.done);
@@ -279,7 +309,6 @@ export async function shapeChange(repo: string, change: string, status: RawStatu
   }
 
   const prog = taskProgress(repo, change);
-  const planningComplete = !!(status && status.isPlanningComplete);
 
   const type = changeType(repo, change);
   const branch = changeBranch(repo, change);
@@ -324,6 +353,151 @@ export async function shapeChange(repo: string, change: string, status: RawStatu
     complete,
     pr,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Completion notifications (pure decision; the native Notification().show()
+// lives in wiring.ts). The decision diffs the previous last-seen completion
+// state against the freshly shaped changes and returns the edges to notify.
+// ---------------------------------------------------------------------------
+
+export interface BoardNotification {
+  repo: string;
+  change: string;
+  kind: "phase" | "complete";
+  phase?: string;
+  title: string;
+  body: string;
+}
+
+interface ChangeCompletionState {
+  steps: string[];
+  complete: boolean;
+}
+
+export type NotifyState = Record<string, ChangeCompletionState>;
+
+function notifyKey(c: Change): string {
+  return `${c.repoPath}\u0000${c.change}`;
+}
+
+// The completed "steps" of a change: each done planning phase, apply once done,
+// review once passed, and done once the change is complete. The grill requires a
+// per-phase notification for every phase including done; the whole-change edge is
+// reported separately as `kind: "complete"`.
+function completedSteps(c: Change): string[] {
+  const steps: string[] = [];
+  for (const p of c.phases) if (p.applicable && p.done) steps.push(p.id);
+  if (c.applyDone) steps.push("apply");
+  if (c.review === "passed") steps.push("review");
+  if (c.complete) steps.push("done");
+  return steps;
+}
+
+// Given the previous state (null on the first scan) and the freshly shaped
+// changes, return the notifications to fire and the next state to remember. On
+// the first scan the state is seeded and nothing fires, so a launch burst of
+// pre-existing completions is suppressed.
+export function computeNotifications(
+  prev: NotifyState | null,
+  changes: Change[]
+): { next: NotifyState; notifications: BoardNotification[] } {
+  const next: NotifyState = {};
+  for (const c of changes) {
+    next[notifyKey(c)] = { steps: completedSteps(c), complete: c.complete };
+  }
+  if (prev == null) return { next, notifications: [] };
+
+  const notifications: BoardNotification[] = [];
+  for (const c of changes) {
+    const before = prev[notifyKey(c)] || { steps: [], complete: false };
+    const seen = new Set(before.steps);
+    for (const step of completedSteps(c)) {
+      if (!seen.has(step)) {
+        notifications.push({
+          repo: c.repo,
+          change: c.change,
+          kind: "phase",
+          phase: step,
+          title: `${c.change} — ${step} complete`,
+          body: `${c.repo}: ${step} phase finished`,
+        });
+      }
+    }
+    if (c.complete && !before.complete) {
+      notifications.push({
+        repo: c.repo,
+        change: c.change,
+        kind: "complete",
+        title: `${c.change} complete`,
+        body: `${c.repo}: all phases done`,
+      });
+    }
+  }
+  return { next, notifications };
+}
+
+// ---------------------------------------------------------------------------
+// Scan-root settings (pure). The disk read/write of settings.json lives in
+// wiring.ts; these functions own the shape, tilde expansion, validation, and
+// the resolution order.
+// ---------------------------------------------------------------------------
+
+export interface Settings {
+  root?: string;
+}
+
+export function parseSettings(text: string): Settings {
+  try {
+    const o = JSON.parse(text) as unknown;
+    if (o && typeof o === "object" && typeof (o as { root?: unknown }).root === "string") {
+      return { root: (o as { root: string }).root };
+    }
+  } catch {
+    /* fall through to empty */
+  }
+  return {};
+}
+
+export function expandTilde(p: string, home: string = os.homedir()): string {
+  if (p === "~") return home;
+  if (p.startsWith("~/")) return path.join(home, p.slice(2));
+  return p;
+}
+
+export function dirExists(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+export type ValidateResult = { ok: true; root: string } | { ok: false; error: string };
+
+// Validate a user-entered scan root: trim, expand a leading ~, and confirm it
+// resolves to an existing directory. `isDir` is injected so the check is unit
+// testable without touching the real filesystem.
+export function validateRoot(
+  input: string,
+  isDir: (p: string) => boolean = dirExists,
+  home: string = os.homedir()
+): ValidateResult {
+  const raw = (input || "").trim();
+  if (!raw) return { ok: false, error: "Enter a directory path." };
+  const expanded = expandTilde(raw, home);
+  if (!isDir(expanded)) return { ok: false, error: "That directory does not exist." };
+  return { ok: true, root: expanded };
+}
+
+// Resolution order: persisted setting → TENTACLES_ROOT env → ~/Code.
+export function resolveRoot(
+  settings: Settings,
+  env: NodeJS.ProcessEnv = process.env,
+  home: string = os.homedir()
+): string {
+  if (settings.root) return settings.root;
+  return env.TENTACLES_ROOT || path.join(home, "Code");
 }
 
 export async function collect(repos: string[]): Promise<StatusResult> {
@@ -394,6 +568,12 @@ export default {
   prForBranch,
   branchCommits,
   shapeChange,
+  computeNotifications,
+  parseSettings,
+  expandTilde,
+  dirExists,
+  validateRoot,
+  resolveRoot,
   collect,
   getStatus,
   archiveChange,

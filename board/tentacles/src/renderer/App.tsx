@@ -2,11 +2,19 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Change, StatusResult } from "../shared/ipc-contract";
 import { RepoGroup } from "./board";
 import { Modal } from "./modal";
+import { SettingsPanel } from "./settings";
 
 const REFRESH_MS = 15000;
 type ThemeChoice = "light" | "dark" | null;
 
 const keyOf = (c: Change) => `${c.repoPath}\u0000${c.change}`;
+
+// specs/<capability>/spec.md → <capability>; used as the heading when several
+// spec files are shown together. Falls back to the file name for other shapes.
+function capabilityOf(file: string): string {
+  const m = file.match(/specs\/([^/]+)\/[^/]+$/);
+  return m ? (m[1] as string) : (file.split("/").pop() ?? file);
+}
 
 function readSavedTheme(): ThemeChoice {
   const saved = localStorage.getItem("osb-theme");
@@ -33,6 +41,7 @@ export default function App() {
   const [removing, setRemoving] = useState<Set<string>>(() => new Set());
   const inFlight = useRef<Set<string>>(new Set());
   const [modal, setModal] = useState({ open: false, title: "", body: "" });
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useLayoutEffect(() => {
     if (theme) document.documentElement.setAttribute("data-theme", theme);
@@ -74,13 +83,27 @@ export default function App() {
     return () => clearInterval(id);
   }, [refresh]);
 
-  const openFile = useCallback(async (file: string) => {
-    setModal({ open: true, title: file, body: "Loading…" });
+  const openArtifacts = useCallback(async (files: string[]) => {
+    if (files.length === 0) return;
+    const single = files.length === 1;
+    const title = single ? (files[0] as string) : `${files.length} spec files`;
+    setModal({ open: true, title, body: "Loading…" });
     try {
-      const res = await window.electronAPI.readFile(file);
-      setModal({ open: true, title: file, body: res.ok ? res.contents : "Could not read file." });
+      const parts = await Promise.all(
+        files.map(async (file) => {
+          let contents = "Could not read file.";
+          try {
+            const res = await window.electronAPI.readFile(file);
+            if (res.ok) contents = res.contents;
+          } catch {
+            /* keep the fallback */
+          }
+          return single ? contents : `## ${capabilityOf(file)}\n\n${contents}`;
+        })
+      );
+      setModal({ open: true, title, body: parts.join("\n\n") });
     } catch {
-      setModal({ open: true, title: file, body: "Could not read file." });
+      setModal({ open: true, title, body: "Could not read file." });
     }
   }, []);
 
@@ -179,7 +202,7 @@ export default function App() {
         list={list}
         collapsed={collapsed.has(repo)}
         onToggle={toggleRepo}
-        openFile={openFile}
+        openArtifacts={openArtifacts}
         onArchive={onArchive}
         archivingKeys={archiving}
         removingKeys={removing}
@@ -192,6 +215,9 @@ export default function App() {
       <header>
         <h1>🗂️ OpenSpec Board</h1>
         <div className="meta">
+          <button className="settings-btn" onClick={() => setSettingsOpen(true)} title="Settings">
+            ⚙
+          </button>
           <button className="theme-btn" onClick={toggleTheme} title="Toggle dark / light">
             🌓
           </button>
@@ -201,6 +227,7 @@ export default function App() {
       </header>
       <main>{main}</main>
       <Modal open={modal.open} title={modal.title} body={modal.body} onClose={closeModal} />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={() => void refresh()} />
     </>
   );
 }
