@@ -206,6 +206,32 @@ describe("parseDiff — raw unified diff → structured model", () => {
     expect(parseDiff("\n")).toEqual([]);
   });
 
+  it("preserves a trailing space in a filename while dropping git's tab terminator", () => {
+    const raw = [
+      "diff --git a/trailing.txt  b/trailing.txt ",
+      "--- a/trailing.txt \t",
+      "+++ b/trailing.txt \t",
+      "@@ -1 +1 @@",
+      "-x",
+      "+y",
+    ].join("\n");
+    const files = parseDiff(raw);
+    expect(files[0]!.path).toBe("trailing.txt ");
+  });
+
+  it("decodes a git C-quoted filename containing a control character", () => {
+    const raw = [
+      'diff --git "a/we\\tird.txt" "b/we\\tird.txt"',
+      '--- "a/we\\tird.txt"',
+      '+++ "b/we\\tird.txt"',
+      "@@ -1 +1 @@",
+      "-a",
+      "+b",
+    ].join("\n");
+    const files = parseDiff(raw);
+    expect(files[0]!.path).toBe("we\tird.txt");
+  });
+
   it("handles multiple files in one diff", () => {
     const raw = [
       "diff --git a/one.txt b/one.txt",

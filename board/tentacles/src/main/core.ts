@@ -341,6 +341,38 @@ async function untrackedDiff(repo: string): Promise<string> {
   return parts.join("\n");
 }
 
+// Decode one git header path: strip a trailing CR, undo C-quoting (git wraps a
+// name in double-quotes and backslash-escapes control chars, `"`, and `\` — with
+// core.quotePath=false only single-byte escapes remain, so fromCharCode is exact),
+// strip the trailing TAB git appends to terminate an unquoted path that contains
+// spaces, and drop the leading a/ or b/ prefix. A legitimate trailing space in the
+// name is preserved (only the tab terminator is removed).
+function decodeGitPath(raw: string): string {
+  let s = raw.replace(/\r$/, "");
+  if (s.length >= 2 && s.startsWith('"') && s.endsWith('"')) {
+    const body = s.slice(1, -1);
+    const escapes: Record<string, string> = {
+      n: "\n", t: "\t", r: "\r", a: "\x07", b: "\b", f: "\f", v: "\v", '"': '"', "\\": "\\",
+    };
+    let out = "";
+    for (let i = 0; i < body.length; i++) {
+      if (body[i] !== "\\") { out += body[i]; continue; }
+      const n = body[i + 1] ?? "";
+      if (n >= "0" && n <= "7") {
+        out += String.fromCharCode(parseInt(body.slice(i + 1, i + 4), 8));
+        i += 3;
+      } else {
+        out += escapes[n] ?? n;
+        i += 1;
+      }
+    }
+    s = out;
+  } else {
+    s = s.replace(/\t$/, "");
+  }
+  return s.replace(/^[ab]\//, "");
+}
+
 // Pure: raw unified-diff text → structured per-file model. Status is inferred from
 // the git header lines (new file / deleted file / rename / Binary / --- +++ /dev/null),
 // each hunk's lines classified add / del / context. Index and "\ No newline" lines
@@ -353,7 +385,7 @@ export function parseDiff(raw: string): DiffFile[] {
   for (const line of String(raw ?? "").split("\n")) {
     if (line.startsWith("diff --git")) {
       const m = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
-      file = { path: m ? (m[2] as string) : "", status: "modified", hunks: [] };
+      file = { path: m ? decodeGitPath(m[2] as string) : "", status: "modified", hunks: [] };
       files.push(file);
       hunk = null;
       continue;
@@ -361,17 +393,17 @@ export function parseDiff(raw: string): DiffFile[] {
     if (!file) continue;
     if (line.startsWith("new file")) { file.status = "added"; continue; }
     if (line.startsWith("deleted file")) { file.status = "deleted"; continue; }
-    if (line.startsWith("rename to ")) { file.status = "renamed"; file.path = line.slice(10).trim(); continue; }
+    if (line.startsWith("rename to ")) { file.status = "renamed"; file.path = decodeGitPath(line.slice(10)); continue; }
     if (line.startsWith("rename from ")) { file.status = "renamed"; continue; }
     if (line.startsWith("Binary files")) { file.status = "binary"; continue; }
     if (line.startsWith("--- ")) {
-      if (line.slice(4).trim() === "/dev/null") file.status = "added";
+      if (line.slice(4).replace(/\r$/, "") === "/dev/null") file.status = "added";
       continue;
     }
     if (line.startsWith("+++ ")) {
-      const p = line.slice(4).trim();
-      if (p === "/dev/null") file.status = "deleted";
-      else file.path = p.replace(/^b\//, "");
+      const rawPath = line.slice(4).replace(/\r$/, "");
+      if (rawPath === "/dev/null") file.status = "deleted";
+      else file.path = decodeGitPath(line.slice(4));
       continue;
     }
     if (line.startsWith("@@")) {
