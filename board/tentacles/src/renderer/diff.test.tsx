@@ -42,3 +42,47 @@ describe("apply-node git button opens the diff modal", () => {
     await waitFor(() => expect(document.querySelector(".diff-overlay")?.className).toContain("open"));
   });
 });
+
+describe("diff modal renders additions green and removals red", () => {
+  it("classifies added and removed lines and renders line text as text, not DOM", async () => {
+    const evil = "<img src=x onerror=alert(1)>";
+    mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([applyingChange()])),
+      getDiff: vi.fn().mockResolvedValue({
+        ok: true,
+        files: [
+          {
+            path: "file.txt",
+            status: "modified",
+            hunks: [
+              {
+                lines: [
+                  { kind: "context", text: "unchanged" },
+                  { kind: "del", text: "old line" },
+                  { kind: "add", text: evil },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await screen.findByText("applying-demo");
+    await user.click(screen.getByTitle("View branch diff"));
+
+    const add = await waitFor(() => {
+      const el = document.querySelector(".diff-line.add");
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    expect(document.querySelector(".diff-line.del")).not.toBeNull();
+    expect(document.querySelector(".diff-line.context")).not.toBeNull();
+
+    // XSS guard: the malicious line is text, no <img> element is created.
+    expect(add.textContent).toContain(evil);
+    expect(document.querySelector(".diff-body img")).toBeNull();
+  });
+});
