@@ -217,18 +217,6 @@ export function changeType(repo: string, change: string): "refactor" | "feature"
   return /^refactor[-/]/i.test(change) ? "refactor" : "feature";
 }
 
-export function changeBranch(repo: string, change: string): string | null {
-  const p = path.join(repo, "openspec", "changes", change, "tasks.md");
-  try {
-    const text = fs.readFileSync(p, "utf8");
-    const m = text.match(/^[ \t]*branch[ \t]*(?:[:=][ \t]*)?[`'"]([^`'"\s]+)[`'"]/im);
-    if (m) return m[1] ?? null;
-  } catch {
-    /* none */
-  }
-  return null;
-}
-
 export function prForBranch(repo: string, branch: string | null): Promise<Pr | null> {
   return new Promise((resolve) => {
     if (!branch) return resolve(null);
@@ -278,7 +266,65 @@ export function branchCommits(repo: string, branch: string | null): Promise<numb
   })();
 }
 
-export async function shapeChange(repo: string, change: string, status: RawStatus | null): Promise<Change> {
+// The git-derived identity of a scanned worktree.
+export interface GitIdentity {
+  commonDir: string | null;
+  branch: string | null;
+  isPrimary: boolean;
+}
+
+type GitRunner = (args: string[], cwd: string) => Promise<string | null>;
+
+const runGit: GitRunner = (args, cwd) =>
+  new Promise((res) => {
+    execFile("git", ["-C", cwd, ...args], { timeout: 8000 }, (err, stdout) => {
+      if (err) return res(null);
+      res(String(stdout).trim());
+    });
+  });
+
+// Resolve a scanned directory's repository identity and checked-out branch. The
+// git runner is injected so callers can substitute a fake. A directory that is
+// not inside a git repository resolves to a standalone identity (no common-dir),
+// and a detached HEAD resolves to a null branch.
+export async function resolveGitIdentity(dir: string, run: GitRunner = runGit): Promise<GitIdentity> {
+  const rawCommon = await run(["rev-parse", "--git-common-dir"], dir);
+  if (rawCommon === null) return { commonDir: null, branch: null, isPrimary: true };
+  const commonDir = path.resolve(dir, rawCommon);
+  const rawBranch = await run(["rev-parse", "--abbrev-ref", "HEAD"], dir);
+  const branch = rawBranch && rawBranch !== "HEAD" ? rawBranch : null;
+  return { commonDir, branch, isPrimary: commonDir === path.resolve(dir, ".git") };
+}
+
+// The display identity carried on the change record: the repository name is the
+// common-dir's parent basename (never the worktree's own folder), falling back to
+// the scanned directory itself for a non-git dir.
+function repositoryFields(dir: string, id: GitIdentity): { repositoryId: string; repositoryName: string } {
+  if (!id.commonDir) return { repositoryId: dir, repositoryName: path.basename(dir) };
+  return { repositoryId: id.commonDir, repositoryName: path.basename(path.dirname(id.commonDir)) };
+}
+
+// The impure collaborators shapeChange depends on, injected so tests can assert
+// against fakes without shelling out to git / gh.
+export interface ShapeDeps {
+  resolveIdentity: (dir: string) => Promise<GitIdentity>;
+  prLookup: (repo: string, branch: string | null) => Promise<Pr | null>;
+  commitCount: (repo: string, branch: string | null) => Promise<number>;
+}
+
+const defaultShapeDeps: ShapeDeps = {
+  resolveIdentity: (dir) => resolveGitIdentity(dir),
+  prLookup: prForBranch,
+  commitCount: branchCommits,
+};
+
+export async function shapeChange(
+  repo: string,
+  change: string,
+  status: RawStatus | null,
+  deps: Partial<ShapeDeps> = {}
+): Promise<Change> {
+  const { resolveIdentity, prLookup, commitCount } = { ...defaultShapeDeps, ...deps };
   const artifactPaths = (status && status.artifactPaths) || {};
   const planningComplete = !!(status && status.isPlanningComplete);
   const ownExists = (id: PhaseId): boolean =>
@@ -314,12 +360,14 @@ export async function shapeChange(repo: string, change: string, status: RawStatu
   const prog = taskProgress(repo, change);
 
   const type = changeType(repo, change);
-  const branch = changeBranch(repo, change);
-  const pr = planningComplete ? await prForBranch(repo, branch) : null;
+  const gitId = await resolveIdentity(repo);
+  const branch = gitId.branch;
+  const { repositoryId, repositoryName } = repositoryFields(repo, gitId);
+  const pr = planningComplete ? await prLookup(repo, branch) : null;
 
   let apply: Apply = { total: prog.total, done: prog.done, source: "tasks.md", file: null };
   if (planningComplete && prog.total > 0 && prog.done === 0) {
-    const commits = await branchCommits(repo, branch);
+    const commits = await commitCount(repo, branch);
     if (commits > 0) apply = { total: prog.total, done: null, commits, source: "commits", file: null };
   }
   const applyDoneByTasks =
@@ -355,6 +403,10 @@ export async function shapeChange(repo: string, change: string, status: RawStatu
     planningComplete,
     complete,
     pr,
+    repositoryId,
+    repositoryName,
+    branch,
+    isPrimary: gitId.isPrimary,
   };
 }
 
@@ -586,7 +638,6 @@ export default {
   runArchive,
   taskProgress,
   changeType,
-  changeBranch,
   prForBranch,
   branchCommits,
   shapeChange,

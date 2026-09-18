@@ -38,6 +38,24 @@ export interface Change {
   planningComplete: boolean;
   complete: boolean;
   pr: Pr | null;
+  // Git-derived worktree identity. repositoryId is the shared common-dir (or the
+  // worktree path when not a git repo); repositoryName is the display label
+  // derived from the repository, not the worktree folder; branch is the branch
+  // checked out in this worktree (null when detached or non-git); isPrimary marks
+  // the primary checkout within its repository.
+  repositoryId: string;
+  repositoryName: string;
+  branch: string | null;
+  isPrimary: boolean;
+}
+
+// A Repository row: the worktrees sharing one common-dir. `nested` is true only
+// when 2+ worktrees group together, so a lone worktree renders exactly as today.
+export interface RepositoryGroup {
+  repositoryId: string;
+  repositoryName: string;
+  nested: boolean;
+  worktrees: Change[];
 }
 
 export type StatusOk = { generatedAt: string; repoCount: number; changes: Change[] };

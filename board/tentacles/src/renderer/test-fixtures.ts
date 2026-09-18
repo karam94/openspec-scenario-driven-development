@@ -26,6 +26,10 @@ export function makeChange(over: Partial<Change> = {}): Change {
     planningComplete: false,
     complete: false,
     pr: null,
+    repositoryId: "/Code/repo-a/.git",
+    repositoryName: "repo-a",
+    branch: null,
+    isPrimary: true,
     ...over,
   };
 }
