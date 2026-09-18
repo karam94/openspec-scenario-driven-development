@@ -441,7 +441,7 @@ export async function getDiff(args: Args, repoPath: string): Promise<DiffResult>
 // (--no-index vs /dev/null) exactly as the whole-repo diff does. Guarded to a
 // discovered repo like getDiff; the file path is an argv element after `--`, never
 // a shell token or an option.
-async function fileDiffFullContext(repo: string, filePath: string): Promise<string> {
+async function fileDiffFullContext(repo: string, repoRoot: string, filePath: string): Promise<string> {
   const ctx = "--unified=1000000";
   const base = await mergeBase(repo);
   if (base) {
@@ -450,6 +450,22 @@ async function fileDiffFullContext(repo: string, filePath: string): Promise<stri
   }
   const head = await runGitText(repo, ["-c", "core.quotePath=false", "diff", "HEAD", ctx, "--", filePath]);
   if (head) return head;
+  // The --no-index fallback reads the raw working tree, so it is the only path that
+  // can follow a symlink off disk. Re-validate at the point of use, not just at
+  // entry: the file must exist as a regular file whose canonical path is still
+  // inside the repo right now. A missing path has no untracked content to show and
+  // must never reach --no-index — this closes the window where an ancestor absent at
+  // entry is created as an outside-pointing symlink before this call. Tracked
+  // deletions never get here; they resolve from git's tree above.
+  const safe = containedRealPath(repoRoot, filePath);
+  if (!safe) return "";
+  let stat: fs.Stats;
+  try {
+    stat = fs.lstatSync(safe);
+  } catch {
+    return "";
+  }
+  if (!stat.isFile()) return "";
   const untracked = await runGitText(repo, ["-c", "core.quotePath=false", "diff", "--no-index", ctx, "--", "/dev/null", filePath]);
   return untracked ?? "";
 }
@@ -497,7 +513,7 @@ export async function getFileDiff(args: Args, repoPath: string, filePath: string
   if (!canonical) return { ok: false, error: "path outside repo" };
   const relFile = path.relative(fs.realpathSync(repoRoot), canonical);
   try {
-    return { ok: true, files: parseDiff(await fileDiffFullContext(repoPath, relFile)) };
+    return { ok: true, files: parseDiff(await fileDiffFullContext(repoPath, repoRoot, relFile)) };
   } catch (e) {
     return { ok: false, error: String(e) };
   }

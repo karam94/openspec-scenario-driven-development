@@ -327,4 +327,47 @@ describe("getFileDiff — full-context diff of one file", () => {
     expect(viaMissing.ok).toBe(false);
     expect(JSON.stringify(viaExisting) + JSON.stringify(viaMissing)).not.toContain("TOP-SECRET-CONTENT");
   });
+
+  it("still shows a genuine untracked file's full contents through the point-of-use gate", async () => {
+    const dir = makeRepoWithBigChange();
+    const args: Args = { repos: [dir], root: "/nonexistent", depth: 1 };
+    fs.writeFileSync(path.join(dir, "brand-new.txt"), "hello\nworld\n");
+
+    const res = await getFileDiff(args, dir, "brand-new.txt");
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.files.map((f) => f.path)).toEqual(["brand-new.txt"]);
+    const lines = res.files[0]!.hunks.flatMap((h) => h.lines);
+    expect(lines.some((l) => l.kind === "add" && l.text === "hello")).toBe(true);
+    expect(lines.some((l) => l.kind === "add" && l.text === "world")).toBe(true);
+  });
+
+  it("a path whose ancestor is absent never reaches the untracked filesystem read", async () => {
+    const dir = makeRepoWithBigChange();
+    const args: Args = { repos: [dir], root: "/nonexistent", depth: 1 };
+    // A path validated only because the repo root is its nearest existing ancestor
+    // (the intermediate component does not exist). It must yield no diff and read
+    // nothing off disk, so a component created as an outside symlink after entry
+    // validation can never be followed by the --no-index fallback.
+    const res = await getFileDiff(args, dir, "phantom-dir/whatever.txt");
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.files).toEqual([]);
+  });
+
+  it("does not follow an in-repo file symlink whose real target is outside the repo", async () => {
+    const dir = makeRepoWithBigChange();
+    const args: Args = { repos: [dir], root: "/nonexistent", depth: 1 };
+    const sentinel = fs.mkdtempSync(path.join(os.tmpdir(), "filediff-filelink-outside-"));
+    created.push(sentinel);
+    fs.writeFileSync(path.join(sentinel, "secret.txt"), "TOP-SECRET-CONTENT\n");
+    fs.symlinkSync(path.join(sentinel, "secret.txt"), path.join(dir, "link.txt"), "file");
+
+    const res = await getFileDiff(args, dir, "link.txt");
+
+    expect(res.ok).toBe(false);
+    expect(JSON.stringify(res)).not.toContain("TOP-SECRET-CONTENT");
+  });
 });
