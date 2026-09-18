@@ -140,6 +140,13 @@ export default function App() {
 
   const closeDiff = useCallback(() => setDiff((d) => ({ ...d, open: false })), []);
 
+  useEffect(() => {
+    if (!diff.open || !diff.repoPath) return;
+    const repoPath = diff.repoPath;
+    const id = setInterval(() => void fetchDiff(repoPath), REFRESH_MS);
+    return () => clearInterval(id);
+  }, [diff.open, diff.repoPath, fetchDiff]);
+
   const onArchive = useCallback(
     async (c: Change) => {
       const k = keyOf(c);

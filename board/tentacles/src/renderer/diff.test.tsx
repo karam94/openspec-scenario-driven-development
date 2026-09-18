@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
 import { makeChange, makeStatus, mockApi } from "./test-fixtures";
@@ -84,5 +84,39 @@ describe("diff modal renders additions green and removals red", () => {
     // XSS guard: the malicious line is text, no <img> element is created.
     expect(add.textContent).toContain(evil);
     expect(document.querySelector(".diff-body img")).toBeNull();
+  });
+});
+
+describe("diff refreshes live only while the modal is open", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("re-requests the diff on the refresh tick while open, and stops once closed", async () => {
+    vi.useFakeTimers();
+    const api = mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([applyingChange()])),
+      getDiff: vi.fn().mockResolvedValue(diffModel),
+    });
+
+    render(<App />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    fireEvent.click(screen.getByTitle("View branch diff"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(api.getDiff).toHaveBeenCalledTimes(1); // initial fetch on open
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15000);
+    });
+    expect(api.getDiff).toHaveBeenCalledTimes(2); // re-requested on the tick while open
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15000);
+    });
+    expect(api.getDiff).toHaveBeenCalledTimes(2); // no further requests once closed
   });
 });
