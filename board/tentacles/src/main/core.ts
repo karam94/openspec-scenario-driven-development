@@ -25,6 +25,7 @@ import type {
   PhaseId,
   Pr,
   ReadFileResult,
+  OpenPathResult,
   StatusResult,
 } from "../shared/ipc-contract";
 
@@ -625,6 +626,26 @@ export function readArtifact(args: Args, fp: string): ReadFileResult {
   }
 }
 
+// The native reveal edge (Electron shell.openPath): "" on success, otherwise the
+// OS error message. Injected so the guard is testable without a real shell.
+export type PathOpener = (target: string) => Promise<string>;
+
+// Guarded reveal: only opens a target that is EXACTLY a currently-discovered
+// repo/worktree root, mirroring archiveChange's repo guard. A renderer-supplied
+// path is untrusted (ADR-0002), so an unknown path is rejected before the shell
+// is ever touched, and the opener is not called.
+export async function openWorktree(
+  args: Args,
+  target: string,
+  opener: PathOpener
+): Promise<OpenPathResult> {
+  const repos = discoverRepos(args);
+  const okRepo = repos.some((r) => path.resolve(r) === path.resolve(target || ""));
+  if (!okRepo) return { ok: false, error: "unknown repo or worktree" };
+  const error = await opener(target);
+  return error ? { ok: false, error } : { ok: true };
+}
+
 export default {
   PHASES,
   PRUNE,
@@ -653,4 +674,5 @@ export default {
   getStatus,
   archiveChange,
   readArtifact,
+  openWorktree,
 };

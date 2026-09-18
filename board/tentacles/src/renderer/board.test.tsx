@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import App from "./App";
 import { makeChange, makeStatus, mockApi, phase } from "./test-fixtures";
 
@@ -131,6 +131,24 @@ describe("the renderer renders the board state", () => {
     btn.click();
 
     expect(openPath).toHaveBeenCalledWith("/Code/wings-core-a");
+  });
+
+  it("surfaces the OS error when View in Finder fails to open the folder", async () => {
+    const openPath = vi.fn().mockResolvedValue({ ok: false, error: "no such file or directory" });
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const c = makeChange({ change: "finder-fail", repoPath: "/Code/gone" });
+    mockApi({ getStatus: vi.fn().mockResolvedValue(makeStatus([c])), openPath });
+
+    render(<App />);
+    await screen.findByText("finder-fail");
+
+    const card = screen.getByText("finder-fail").closest(".change") as HTMLElement;
+    within(card).getByRole("button", { name: /view in finder/i }).click();
+
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith("Could not open folder: no such file or directory")
+    );
+    alertSpy.mockRestore();
   });
 
   it("renders the review and done nodes reflecting review and PR state", async () => {

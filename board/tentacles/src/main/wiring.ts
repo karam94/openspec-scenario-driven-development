@@ -45,6 +45,7 @@ export interface BoardCore {
   getStatus(args: Args): Promise<StatusResult>;
   readArtifact(args: Args, filePath: string): ReadFileResult;
   archiveChange(args: Args, repoPath: string, change: string): Promise<ArchiveResult>;
+  openWorktree(args: Args, target: string, opener: OpenPath): Promise<OpenPathResult>;
 }
 
 export interface WindowOpts {
@@ -143,8 +144,7 @@ export function makeHandlers(
     }),
     openPath: async (_event: IpcMainInvokeEvent, target: string): Promise<OpenPathResult> => {
       if (!openPath) return { ok: false, error: "open unavailable" };
-      const error = await openPath(target);
-      return error ? { ok: false, error } : { ok: true };
+      return core.openWorktree(getArgs(), target, openPath);
     },
   };
 }
