@@ -128,44 +128,15 @@ function DoneNode({ c }: { c: Change }) {
   );
 }
 
-function ApplyBar({ c }: { c: Change }) {
-  const a = c.apply;
-  if (a.source === "tasks.md" && a.total) {
-    return (
-      <div className="apply">
-        <div className="bar">
-          <i style={{ width: `${Math.round((100 * (a.done || 0)) / a.total)}%` }} />
-        </div>
-        <div className="apply-label">
-          <span>apply progress</span>
-          <span>
-            {a.done || 0} / {a.total} tasks
-          </span>
-        </div>
-      </div>
-    );
-  }
-  if (a.source === "commits") {
-    return (
-      <div className="apply">
-        <div className="apply-label">
-          <span>apply progress</span>
-          <span>{a.commits} commit(s) · tasks.md not ticked</span>
-        </div>
-      </div>
-    );
-  }
-  return null;
-}
-
 export function ChangeCard({
   c,
+  showBranch,
   openArtifacts,
   openDiff,
   onArchive,
   busy,
   removing,
-}: { c: Change; onArchive: (c: Change) => void; busy: boolean; removing: boolean } & WithOpen) {
+}: { c: Change; showBranch: boolean; onArchive: (c: Change) => void; busy: boolean; removing: boolean } & WithOpen) {
   const badge = c.complete ? (
     <span className="badge complete">COMPLETE</span>
   ) : c.review === "pending" ? (
@@ -185,9 +156,19 @@ export function ChangeCard({
     <div className={`change ${removing ? "archiving" : ""}`}>
       <div className="change-head">
         <span className="cname">{c.change}</span>
+        {showBranch && c.branch ? <span className="branch-chip">{c.branch}</span> : null}
         {typeBadge}
         {badge}
         <span className="crepo">{c.schema}</span>
+        <button
+          className="finder-btn"
+          onClick={async () => {
+            const res = await window.electronAPI.openPath(c.repoPath);
+            if (!res.ok) window.alert("Could not open folder: " + res.error);
+          }}
+        >
+          View in Finder
+        </button>
         <button className="archive-btn" onClick={() => onArchive(c)} disabled={busy}>
           {busy ? "Archiving…" : "Archive"}
         </button>
@@ -206,13 +187,14 @@ export function ChangeCard({
         <div className="arrow">→</div>
         <DoneNode c={c} />
       </div>
-      <ApplyBar c={c} />
     </div>
   );
 }
 
 export function RepoGroup({
-  repo,
+  repositoryId,
+  repositoryName,
+  nested,
   list,
   collapsed,
   onToggle,
@@ -222,10 +204,12 @@ export function RepoGroup({
   archivingKeys,
   removingKeys,
 }: {
-  repo: string;
+  repositoryId: string;
+  repositoryName: string;
+  nested: boolean;
   list: Change[];
   collapsed: boolean;
-  onToggle: (repo: string) => void;
+  onToggle: (repositoryId: string) => void;
   onArchive: (c: Change) => void;
   archivingKeys: Set<string>;
   removingKeys: Set<string>;
@@ -233,9 +217,9 @@ export function RepoGroup({
   const done = list.filter((c) => c.complete).length;
   return (
     <div className={`repo-group ${collapsed ? "collapsed" : ""}`}>
-      <div className="repo-bar" onClick={() => onToggle(repo)}>
+      <div className="repo-bar" onClick={() => onToggle(repositoryId)}>
         <span className="repo-caret">▼</span>
-        <span className="repo-title">{repo}</span>
+        <span className="repo-title">{repositoryName}</span>
         <span className="repo-summary">
           {list.length} change(s) · {done} complete
         </span>
@@ -247,6 +231,7 @@ export function RepoGroup({
             <ChangeCard
               key={k}
               c={c}
+              showBranch={nested}
               openArtifacts={openArtifacts}
               openDiff={openDiff}
               onArchive={onArchive}

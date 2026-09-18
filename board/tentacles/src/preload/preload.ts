@@ -14,6 +14,7 @@ const CHANNELS: ChannelMap = {
   getSettings: "board:getSettings",
   setSettings: "board:setSettings",
   chooseDirectory: "board:chooseDirectory",
+  openPath: "board:openPath",
 };
 
 // Main → renderer push channels, typed against the shared EventChannelMap for
@@ -31,6 +32,7 @@ const api: ElectronAPI = {
   getSettings: () => ipcRenderer.invoke(CHANNELS.getSettings),
   setSettings: (payload) => ipcRenderer.invoke(CHANNELS.setSettings, payload),
   chooseDirectory: () => ipcRenderer.invoke(CHANNELS.chooseDirectory),
+  openPath: (target) => ipcRenderer.invoke(CHANNELS.openPath, target),
   onNotificationSound: (handler) => {
     const listener = () => handler();
     ipcRenderer.on(EVENTS.notificationSound, listener);

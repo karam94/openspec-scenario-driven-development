@@ -22,6 +22,7 @@ import type {
   ChooseDirectoryResult,
   DiffResult,
   ReadFileResult,
+  OpenPathResult,
   SetSettingsArgs,
   SetSettingsResult,
   StatusResult,
@@ -39,6 +40,7 @@ export const IPC: ChannelMap = {
   getSettings: "board:getSettings",
   setSettings: "board:setSettings",
   chooseDirectory: "board:chooseDirectory",
+  openPath: "board:openPath",
 };
 
 // The subset of core the handlers depend on.
@@ -48,6 +50,7 @@ export interface BoardCore {
   getDiff(args: Args, repoPath: string): Promise<DiffResult>;
   getFileDiff(args: Args, repoPath: string, filePath: string): Promise<DiffResult>;
   archiveChange(args: Args, repoPath: string, change: string): Promise<ArchiveResult>;
+  openWorktree(args: Args, target: string, opener: OpenPath): Promise<OpenPathResult>;
 }
 
 export interface WindowOpts {
@@ -102,6 +105,12 @@ export function makeDirectoryChooser(showOpenDialog: ShowOpenDialog): ChooseDire
   };
 }
 
+// Reveals a folder in the OS file browser. Mirrors Electron's shell.openPath: an
+// empty string means success, a non-empty string is the OS error message.
+// Injected so the handler's success/error mapping is unit-testable without a
+// real shell; main.ts supplies the real shell.openPath.
+export type OpenPath = (target: string) => Promise<string>;
+
 // The privileged operations, each backed by core. `getArgs` is a getter
 // so the scan args are read fresh per call. `observe` (optional) is handed each
 // scan's changes so completion notifications can fire main-side. `settings`
@@ -111,7 +120,8 @@ export function makeHandlers(
   getArgs: () => Args,
   observe?: (changes: Change[]) => void,
   settings?: SettingsDeps,
-  chooseDirectory?: ChooseDirectory
+  chooseDirectory?: ChooseDirectory,
+  openPath?: OpenPath
 ) {
   return {
     getStatus: async () => {
@@ -143,6 +153,10 @@ export function makeHandlers(
     chooseDirectory: async (): Promise<ChooseDirectoryResult> => ({
       path: chooseDirectory ? await chooseDirectory() : null,
     }),
+    openPath: async (_event: IpcMainInvokeEvent, target: string): Promise<OpenPathResult> => {
+      if (!openPath) return { ok: false, error: "open unavailable" };
+      return core.openWorktree(getArgs(), target, openPath);
+    },
   };
 }
 
@@ -152,9 +166,10 @@ export function registerIpc(
   getArgs: () => Args,
   observe?: (changes: Change[]) => void,
   settings?: SettingsDeps,
-  chooseDirectory?: ChooseDirectory
+  chooseDirectory?: ChooseDirectory,
+  openPath?: OpenPath
 ) {
-  const handlers = makeHandlers(core, getArgs, observe, settings, chooseDirectory);
+  const handlers = makeHandlers(core, getArgs, observe, settings, chooseDirectory, openPath);
   ipcMain.handle(IPC.getStatus, handlers.getStatus);
   ipcMain.handle(IPC.readFile, handlers.readFile);
   ipcMain.handle(IPC.getDiff, handlers.getDiff);
@@ -163,6 +178,7 @@ export function registerIpc(
   ipcMain.handle(IPC.getSettings, handlers.getSettings);
   ipcMain.handle(IPC.setSettings, handlers.setSettings);
   ipcMain.handle(IPC.chooseDirectory, handlers.chooseDirectory);
+  ipcMain.handle(IPC.openPath, handlers.openPath);
   return handlers;
 }
 
@@ -275,6 +291,7 @@ export interface BootstrapDeps {
   observe?: (changes: Change[]) => void;
   settings?: SettingsDeps;
   chooseDirectory?: ChooseDirectory;
+  openPath?: OpenPath;
 }
 
 // Ordered startup coordinator. Registers IPC handlers BEFORE any window can call
@@ -293,8 +310,9 @@ export async function bootstrap({
   observe,
   settings,
   chooseDirectory,
+  openPath,
 }: BootstrapDeps) {
-  registerIpc(ipcMain, core, getArgs, observe, settings, chooseDirectory);
+  registerIpc(ipcMain, core, getArgs, observe, settings, chooseDirectory, openPath);
   const windows = makeWindowManager(BrowserWindowCtor, windowOpts);
   let started = false;
 

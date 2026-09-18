@@ -104,5 +104,6 @@ app.whenReady().then(() => {
     observe: notifier.observe,
     settings,
     chooseDirectory,
+    openPath: (target: string) => shell.openPath(target),
   });
 });

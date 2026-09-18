@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
 import { makeChange, makeStatus, mockApi, phase } from "./test-fixtures";
 
 describe("the renderer renders the board state", () => {
   it("renders changes grouped by repo with correct ordering and badges", async () => {
-    const incomplete = makeChange({ change: "a-incomplete", repo: "repo-a", repoPath: "/Code/repo-a", type: "feature", complete: false });
-    const complete = makeChange({ change: "z-complete", repo: "repo-a", repoPath: "/Code/repo-a", type: "refactor", complete: true, review: "passed" });
-    const other = makeChange({ change: "b-other", repo: "repo-b", repoPath: "/Code/repo-b" });
+    const incomplete = makeChange({ change: "a-incomplete", repo: "repo-a", repoPath: "/Code/repo-a", repositoryId: "/Code/repo-a/.git", repositoryName: "repo-a", type: "feature", complete: false });
+    const complete = makeChange({ change: "z-complete", repo: "repo-a", repoPath: "/Code/repo-a", repositoryId: "/Code/repo-a/.git", repositoryName: "repo-a", type: "refactor", complete: true, review: "passed" });
+    const other = makeChange({ change: "b-other", repo: "repo-b", repoPath: "/Code/repo-b", repositoryId: "/Code/repo-b/.git", repositoryName: "repo-b" });
     mockApi({ getStatus: vi.fn().mockResolvedValue(makeStatus([complete, incomplete, other], 2)) });
 
     const { container } = render(<App />);
@@ -26,6 +26,34 @@ describe("the renderer renders the board state", () => {
     expect(screen.getAllByText("FEATURE")).toHaveLength(2);
     expect(screen.getByText("REFACTOR")).toBeInTheDocument();
     expect(screen.getByText("COMPLETE")).toBeInTheDocument();
+  });
+
+  it("shows a branch chip per card only when worktrees are grouped (nested)", async () => {
+    const featA = makeChange({
+      change: "feat-a-change", repo: "wings-core-a", repoPath: "/Code/wings-core-a",
+      repositoryId: "/Code/wings-core/.git", repositoryName: "wings-core", branch: "feat-a",
+    });
+    const featB = makeChange({
+      change: "feat-b-change", repo: "wings-core-b", repoPath: "/Code/wings-core-b",
+      repositoryId: "/Code/wings-core/.git", repositoryName: "wings-core", branch: "feat-b",
+    });
+    const solo = makeChange({
+      change: "solo-change", repo: "lonely", repoPath: "/Code/lonely",
+      repositoryId: "/Code/lonely/.git", repositoryName: "lonely", branch: "feat-solo",
+    });
+    mockApi({ getStatus: vi.fn().mockResolvedValue(makeStatus([featA, featB, solo], 2)) });
+
+    const { container } = render(<App />);
+    await screen.findByText("feat-a-change");
+
+    // both concurrent worktrees show their branch chip
+    const chips = [...container.querySelectorAll(".branch-chip")].map((e) => e.textContent);
+    expect(chips).toContain("feat-a");
+    expect(chips).toContain("feat-b");
+
+    // the lone worktree shows no branch chip (renders as today)
+    const soloCard = screen.getByText("solo-change").closest(".change");
+    expect(soloCard?.querySelector(".branch-chip")).toBeNull();
   });
 
   it("renders each phase's state in the chain", async () => {
@@ -101,7 +129,7 @@ describe("the renderer renders the board state", () => {
     expect(proposalNode?.className).not.toContain("clickable");
   });
 
-  it("shows apply progress for the tasks.md source", async () => {
+  it("shows apply progress on the apply node without a redundant progress bar", async () => {
     const c = makeChange({
       change: "tasks-apply",
       planningComplete: true,
@@ -113,12 +141,15 @@ describe("the renderer renders the board state", () => {
     const { container } = render(<App />);
     await screen.findByText("tasks-apply");
 
-    expect(screen.getByText("2 / 4 tasks")).toBeInTheDocument();
-    const bar = container.querySelector(".bar > i") as HTMLElement | null;
-    expect(bar?.style.width).toBe("50%");
+    // the apply node still carries the x/y count
+    expect(screen.getByText("2/4")).toBeInTheDocument();
+    // but the redundant horizontal progress bar is gone
+    expect(container.querySelector(".apply")).toBeNull();
+    expect(container.querySelector(".bar")).toBeNull();
+    expect(screen.queryByText("apply progress")).toBeNull();
   });
 
-  it("shows apply progress for the commits source with no task bar", async () => {
+  it("shows commit-source apply on the apply node without a progress bar", async () => {
     const c = makeChange({
       change: "commits-apply",
       planningComplete: true,
@@ -130,8 +161,44 @@ describe("the renderer renders the board state", () => {
     const { container } = render(<App />);
     await screen.findByText("commits-apply");
 
-    expect(screen.getByText("5 commit(s) · tasks.md not ticked")).toBeInTheDocument();
-    expect(container.querySelector(".bar")).toBeNull();
+    // the apply node carries the commit count
+    expect(screen.getByText("5 commit(s)")).toBeInTheDocument();
+    // no bar and no "tasks.md not ticked" footer any more
+    expect(container.querySelector(".apply")).toBeNull();
+    expect(screen.queryByText(/tasks\.md not ticked/)).toBeNull();
+  });
+
+  it("reveals the worktree folder in the OS file browser when View in Finder is clicked", async () => {
+    const openPath = vi.fn().mockResolvedValue({ ok: true });
+    const c = makeChange({ change: "finder-change", repoPath: "/Code/wings-core-a" });
+    mockApi({ getStatus: vi.fn().mockResolvedValue(makeStatus([c])), openPath });
+
+    render(<App />);
+    await screen.findByText("finder-change");
+
+    const card = screen.getByText("finder-change").closest(".change") as HTMLElement;
+    const btn = within(card).getByRole("button", { name: /view in finder/i });
+    btn.click();
+
+    expect(openPath).toHaveBeenCalledWith("/Code/wings-core-a");
+  });
+
+  it("surfaces the OS error when View in Finder fails to open the folder", async () => {
+    const openPath = vi.fn().mockResolvedValue({ ok: false, error: "no such file or directory" });
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const c = makeChange({ change: "finder-fail", repoPath: "/Code/gone" });
+    mockApi({ getStatus: vi.fn().mockResolvedValue(makeStatus([c])), openPath });
+
+    render(<App />);
+    await screen.findByText("finder-fail");
+
+    const card = screen.getByText("finder-fail").closest(".change") as HTMLElement;
+    within(card).getByRole("button", { name: /view in finder/i }).click();
+
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith("Could not open folder: no such file or directory")
+    );
+    alertSpy.mockRestore();
   });
 
   it("renders the review and done nodes reflecting review and PR state", async () => {

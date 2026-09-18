@@ -1,0 +1,34 @@
+#!/bin/bash
+# e2e stub for `git`. Only the two worktree fixtures resolve to a repository: they
+# share one common-dir (…/wings-core/.git) on distinct branches, so the board
+# groups them under a single Repository row. Every other scanned dir exits
+# non-zero, so the resolver treats it as non-git and falls back exactly as today.
+set -euo pipefail
+
+LOG="${E2E_STUB_LOG:-/dev/null}"
+echo "git $*" >> "$LOG"
+
+dir=""
+if [ "${1:-}" = "-C" ]; then dir="${2:-}"; shift 2; fi
+rest="$*"
+
+base="$(basename "$dir")"
+parent="$(dirname "$dir")"
+
+# The two worktree fixtures share one common-dir (grouped). repo-alpha is its own
+# repository whose checked-out branch is the PR-bearing feat/ship-export, so the
+# board resolves its PR from the real branch (the tasks.md scrape is retired).
+common=""
+case "$base" in
+  wings-core-feat-a) common="${parent}/wings-core/.git"; branch="feat-a";;
+  wings-core-feat-b) common="${parent}/wings-core/.git"; branch="feat-b";;
+  repo-alpha) common="${dir}/.git"; branch="feat/ship-export";;
+  *) exit 1;;
+esac
+
+case "$rest" in
+  *--git-common-dir*) echo "$common";;
+  *--abbrev-ref*) echo "$branch";;
+  *) echo 0;;
+esac
+exit 0

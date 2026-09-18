@@ -26,6 +26,10 @@ export function makeChange(over: Partial<Change> = {}): Change {
     planningComplete: false,
     complete: false,
     pr: null,
+    repositoryId: "/Code/repo-a/.git",
+    repositoryName: "repo-a",
+    branch: null,
+    isPrimary: true,
     ...over,
   };
 }
@@ -43,6 +47,7 @@ export type MockApi = {
   getSettings: ReturnType<typeof vi.fn>;
   setSettings: ReturnType<typeof vi.fn>;
   chooseDirectory: ReturnType<typeof vi.fn>;
+  openPath: ReturnType<typeof vi.fn>;
   onNotificationSound: ReturnType<typeof vi.fn>;
 };
 
@@ -56,6 +61,7 @@ export function mockApi(over: Partial<ElectronAPI> = {}): MockApi {
     getSettings: vi.fn().mockResolvedValue({ root: "/Code", notifications: "enabled" }),
     setSettings: vi.fn().mockResolvedValue({ ok: true, root: "/Code", notifications: "enabled" }),
     chooseDirectory: vi.fn().mockResolvedValue({ path: null }),
+    openPath: vi.fn().mockResolvedValue({ ok: true }),
     onNotificationSound: vi.fn().mockReturnValue(() => {}),
     ...over,
   } as unknown as MockApi;

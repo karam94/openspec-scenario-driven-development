@@ -1,4 +1,4 @@
-// Type-only IPC contract: the single source of truth for the board
+// Type-only IPC contract: the single source of truth for the board's named
 // channels and their payload/result shapes. Everything here is a type, so it
 // erases at compile and adds no runtime coupling between the CJS main bundle
 // and the Vite renderer bundle.
@@ -42,6 +42,26 @@ export interface Change {
   planningComplete: boolean;
   complete: boolean;
   pr: Pr | null;
+  // Git-derived worktree identity. repositoryId is the shared common-dir (or the
+  // worktree path when not a git repo); repositoryName is the display label
+  // derived from the repository, not the worktree folder; branch is the branch
+  // checked out in this worktree (null when detached or non-git); isPrimary marks
+  // the primary checkout within its repository.
+  repositoryId: string;
+  repositoryName: string;
+  branch: string | null;
+  isPrimary: boolean;
+}
+
+// A Repository row: the changes carded under one common-dir. `nested` is true only
+// when 2+ distinct worktrees (distinct repoPaths) share that common-dir, so a lone
+// worktree — even one holding more than one active change — renders exactly as
+// today with no extra nesting level and no branch chips.
+export interface RepositoryGroup {
+  repositoryId: string;
+  repositoryName: string;
+  nested: boolean;
+  worktrees: Change[];
 }
 
 export type StatusOk = { generatedAt: string; repoCount: number; changes: Change[] };
@@ -94,6 +114,12 @@ export type NotificationSetting = "enabled" | "silent" | "muted";
 // the user cancels the dialog (the renderer then leaves the input untouched).
 export type ChooseDirectoryResult = { path: string | null };
 
+// The result of asking the OS to reveal a worktree folder in its file browser.
+// `ok` is false with an error string when the path could not be opened (missing
+// folder, no handler); the renderer surfaces the failure rather than silently
+// swallowing it.
+export type OpenPathResult = { ok: true } | { ok: false; error: string };
+
 // Exact method → channel-name mapping: the single source of truth for the
 // boundary. Both the preload bridge and the main-process IPC registry are typed
 // against it, so a typo, a missing channel, OR a swap (mapping a method to a
@@ -107,6 +133,7 @@ export interface ChannelMap {
   getSettings: "board:getSettings";
   setSettings: "board:setSettings";
   chooseDirectory: "board:chooseDirectory";
+  openPath: "board:openPath";
 }
 
 export type Channel = ChannelMap[keyof ChannelMap];
@@ -132,5 +159,6 @@ export interface ElectronAPI {
   getSettings(): Promise<BoardSettings>;
   setSettings(payload: SetSettingsArgs): Promise<SetSettingsResult>;
   chooseDirectory(): Promise<ChooseDirectoryResult>;
+  openPath(target: string): Promise<OpenPathResult>;
   onNotificationSound(handler: () => void): () => void;
 }
