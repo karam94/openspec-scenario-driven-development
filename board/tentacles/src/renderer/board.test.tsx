@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import App from "./App";
 import { makeChange, makeStatus, mockApi, phase } from "./test-fixtures";
 
@@ -49,6 +50,55 @@ describe("the renderer renders the board state", () => {
     // the done phase with a file is clickable
     const grillNode = screen.getByText("grill").closest(".node");
     expect(grillNode?.className).toContain("clickable");
+  });
+
+  it("makes an in-progress phase clickable when its artifact is on disk and opens it", async () => {
+    const c = makeChange({
+      change: "inprogress-openable",
+      phases: [
+        phase("grill", { done: true, files: ["/repo/x/grill.md"] }),
+        // proposal.md exists but the phase is still in-progress (done keys on the
+        // next artifact) — it must be openable.
+        phase("proposal", { inProgress: true, fileExists: true, files: ["/repo/x/proposal.md"] }),
+        phase("specs"),
+        phase("design"),
+        phase("tasks"),
+      ],
+    });
+    const api = mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([c])),
+      readFile: vi.fn().mockResolvedValue({ ok: true, contents: "proposal body" }),
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await screen.findByText("inprogress-openable");
+
+    const proposalNode = screen.getByText("proposal").closest(".node");
+    expect(proposalNode?.className).toContain("clickable");
+
+    await user.click(screen.getByText("proposal"));
+    expect(api.readFile).toHaveBeenCalledWith("/repo/x/proposal.md");
+  });
+
+  it("keeps an in-progress phase non-clickable when its artifact is not yet on disk", async () => {
+    const c = makeChange({
+      change: "inprogress-empty",
+      phases: [
+        phase("grill", { done: true, files: ["/repo/x/grill.md"] }),
+        phase("proposal", { inProgress: true, fileExists: false, files: ["/repo/x/proposal.md"] }),
+        phase("specs"),
+        phase("design"),
+        phase("tasks"),
+      ],
+    });
+    mockApi({ getStatus: vi.fn().mockResolvedValue(makeStatus([c])) });
+
+    render(<App />);
+    await screen.findByText("inprogress-empty");
+
+    const proposalNode = screen.getByText("proposal").closest(".node");
+    expect(proposalNode?.className).not.toContain("clickable");
   });
 
   it("shows apply progress for the tasks.md source", async () => {

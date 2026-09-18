@@ -4,7 +4,7 @@ import type { BoardNotification, NotificationSetting } from "./core";
 import type { Change, Phase, PhaseId } from "../shared/ipc-contract";
 
 function phase(id: PhaseId, done: boolean): Phase {
-  return { id, applicable: true, done, files: [] };
+  return { id, applicable: true, done, files: [], fileExists: false };
 }
 
 // A change whose grill phase is (or isn't) complete — the notifier seeds on the

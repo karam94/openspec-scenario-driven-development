@@ -3,7 +3,7 @@ import { computeNotifications, type NotifyState } from "./core";
 import type { Change, Phase, PhaseId } from "../shared/ipc-contract";
 
 function phase(id: PhaseId, done: boolean): Phase {
-  return { id, applicable: true, done, files: [] };
+  return { id, applicable: true, done, files: [], fileExists: false };
 }
 
 function makeChange(over: Partial<Change> = {}): Change {

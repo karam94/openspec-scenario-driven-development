@@ -10,6 +10,10 @@ export interface Phase {
   applicable: boolean;
   done: boolean;
   files: string[];
+  // The phase's own artifact is on disk. Decoupled from `done`, which keys on
+  // the NEXT artifact (ADR-0004): an in-progress artifact awaiting review still
+  // has its file, so it stays openable.
+  fileExists: boolean;
   inProgress?: boolean;
 }
 

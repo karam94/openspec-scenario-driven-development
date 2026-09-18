@@ -15,8 +15,11 @@ function PhaseNode({ p, openArtifacts }: { p: Phase } & WithOpen) {
     );
   }
   if (p.inProgress) {
+    const openable = p.fileExists && p.files.length > 0;
+    const cls = openable ? "node progress clickable" : "node progress";
+    const onClick = openable ? () => openArtifacts(p.files) : undefined;
     return (
-      <div className="node progress">
+      <div className={cls} onClick={onClick}>
         <div className="phase">{p.id}</div>
         <div className="state">
           <span className="spinner" />
