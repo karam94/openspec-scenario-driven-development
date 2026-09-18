@@ -23,3 +23,20 @@ complete once the plan as a whole is complete.
 ### Scan root
 The directory the board scans for repositories that contain OpenSpec changes. Chosen by the user
 in Settings; falls back to an environment override and then to a default location when unset.
+
+### Target
+An AI coding host the workflow can be set up for: **Claude**, **Kiro**, or **Kiro Crew**. Kiro Crew
+is a superset of Kiro (everything Kiro needs, plus its host wiring). A user may set up more than one
+target on the same machine.
+_Avoid_: Tool, adapter, platform.
+
+### Setup
+Installing everything a chosen target needs — globally, on the user's machine — so the atdd-driven
+OpenSpec workflow can run: the canonical skills, the agent adapters, OpenSpec's global configuration,
+and any target-specific host wiring. Setup is global only; it never overlays an individual repository.
+_Avoid_: Install, configure, provision.
+
+### Doctor
+A check that verifies a target's Setup is present and correct and reports each finding pass/fail. When
+findings fail, the doctor offers to repair them (a repair re-runs Setup for the affected target).
+_Avoid_: Health check, verify, lint.

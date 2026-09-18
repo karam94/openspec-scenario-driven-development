@@ -8,16 +8,20 @@ terminal and no localhost port.
 ## Architecture
 
 IPC-native — there is **no HTTP server**. The Electron main process invokes the
-board logic directly and exposes it to the renderer over three named IPC channels
+board logic directly and exposes it to the renderer over eight named IPC channels
 through a minimal preload bridge:
 
 | File | Role |
 | --- | --- |
 | `main.js` | Electron entry: resolves the login-shell PATH, registers IPC, creates the window, wires lifecycle. |
 | `wiring.js` | Pure, testable wiring (IPC handler factories, secure window, lifecycle, PATH resolution). Takes Electron objects as parameters so tests need no Electron. |
-| `core.js` | The board scan/status/archive/file logic. |
-| `preload.js` | `contextBridge` exposing exactly `getStatus` / `readFile` / `archive`. |
+| `core.js` | The board scan/status/archive/file logic, plus the pure setup install-planner / doctor-checker. |
+| `preload.js` | `contextBridge` exposing exactly `getStatus` / `readFile` / `archive` / `getSettings` / `setSettings` / `chooseDirectory` / `install` / `doctor`. |
 | `index.html` | The board UI (copied from `board/index.html`; the three data calls swapped to the bridge and the legacy HTTP-only `file://` guard block removed). |
+
+The `install` / `doctor` channels back the Settings **Setup** tab (configure the
+machine for Claude / Kiro / Kiro Crew, verify, repair) — see
+`docs/adr/0005-settings-tool-ipc-channels.md`.
 
 The renderer runs with secure defaults (`contextIsolation: true`,
 `nodeIntegration: false`, `sandbox: true`) — see `docs/adr/0002-secure-renderer-defaults.md`.

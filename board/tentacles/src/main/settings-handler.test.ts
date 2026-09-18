@@ -31,13 +31,13 @@ describe("settings IPC handlers — notification preference", () => {
   it("getSettings returns the persisted notification preference", () => {
     const s = fakeSettings({ root: "/Code", notifications: "muted" });
     const handlers = makeHandlers(noCore, () => args, undefined, s.deps);
-    expect(handlers.getSettings()).toEqual({ root: "/Code", notifications: "muted" });
+    expect(handlers.getSettings()).toEqual({ root: "/Code", notifications: "muted", targets: [] });
   });
 
   it("getSettings defaults the preference to enabled when unset", () => {
     const s = fakeSettings({ root: "/Code" });
     const handlers = makeHandlers(noCore, () => args, undefined, s.deps);
-    expect(handlers.getSettings()).toEqual({ root: "/Code", notifications: "enabled" });
+    expect(handlers.getSettings()).toEqual({ root: "/Code", notifications: "enabled", targets: [] });
   });
 
   it("setSettings persists both the validated root and the chosen preference", () => {
@@ -46,8 +46,8 @@ describe("settings IPC handlers — notification preference", () => {
 
     const res = handlers.setSettings(undefined as never, { root: "/new", notifications: "silent" });
 
-    expect(res).toEqual({ ok: true, root: "/new", notifications: "silent" });
-    expect(s.written()).toEqual({ root: "/new", notifications: "silent" });
+    expect(res).toEqual({ ok: true, root: "/new", notifications: "silent", targets: [] });
+    expect(s.written()).toEqual({ root: "/new", notifications: "silent", targets: [] });
     expect(s.liveRoot()).toBe("/new");
   });
 
@@ -57,8 +57,8 @@ describe("settings IPC handlers — notification preference", () => {
 
     const res = handlers.setSettings(undefined as never, { root: "/new" });
 
-    expect(res).toEqual({ ok: true, root: "/new", notifications: "muted" });
-    expect(s.written()).toEqual({ root: "/new", notifications: "muted" });
+    expect(res).toEqual({ ok: true, root: "/new", notifications: "muted", targets: [] });
+    expect(s.written()).toEqual({ root: "/new", notifications: "muted", targets: [] });
   });
 
   it("setSettings rejects an invalid root and writes nothing", () => {

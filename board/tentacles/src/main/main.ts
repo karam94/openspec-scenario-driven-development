@@ -16,6 +16,8 @@ import {
   settingsFilePath,
   readSettingsFile,
   writeSettingsFile,
+  makeInstallExecutor,
+  makeDoctorProbe,
 } from "./wiring";
 
 const args = core.defaultArgs();
@@ -104,5 +106,11 @@ app.whenReady().then(() => {
     observe: notifier.observe,
     settings,
     chooseDirectory,
+    setup: {
+      repoRoot: core.resolveBundleRoot(),
+      home: os.homedir(),
+      exec: makeInstallExecutor(),
+      probe: makeDoctorProbe(),
+    },
   });
 });
