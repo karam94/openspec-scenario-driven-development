@@ -1,10 +1,10 @@
 import { test, expect } from "./helpers/launch";
 
 // artifact-viewing (item 4): a change with more than one capability writes one
-// specs/<capability>/spec.md each. The single specs node must open a modal that
-// lists ALL of them, each under its own capability heading — not just the first.
+// specs/<capability>/spec.md each. The single specs node must open a modal with
+// one tab per capability; clicking a tab shows that capability's spec on its own.
 test.describe("multi-capability specs", () => {
-  test("the specs node lists every capability's spec in the modal", async ({ app }) => {
+  test("the specs node shows a tab per capability and switches content on click", async ({ app }) => {
     const card = app.page.locator(".change", {
       has: app.page.locator(".cname", { hasText: "ship-export" }),
     });
@@ -14,9 +14,18 @@ test.describe("multi-capability specs", () => {
 
     const modal = app.page.locator(".overlay.open");
     await expect(modal).toBeVisible();
-    await expect(modal.locator(".modal-body")).toContainText("csv-export");
-    await expect(modal.locator(".modal-body")).toContainText("pdf-export");
+
+    const csvTab = modal.getByRole("tab", { name: "csv-export" });
+    const pdfTab = modal.getByRole("tab", { name: "pdf-export" });
+    await expect(csvTab).toBeVisible();
+    await expect(pdfTab).toBeVisible();
+
+    // first tab active by default: only its spec is shown
     await expect(modal.locator(".modal-body")).toContainText("The system exports data as CSV.");
+    await expect(modal.locator(".modal-body")).not.toContainText("The system exports data as PDF.");
+
+    await pdfTab.click();
     await expect(modal.locator(".modal-body")).toContainText("The system exports data as PDF.");
+    await expect(modal.locator(".modal-body")).not.toContainText("The system exports data as CSV.");
   });
 });

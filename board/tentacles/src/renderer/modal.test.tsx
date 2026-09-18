@@ -135,3 +135,94 @@ describe("file modal", () => {
     expect(overlay()?.className).not.toContain("open");
   });
 });
+
+function changeWithSpecs() {
+  return makeChange({
+    change: "ship-export",
+    phases: [
+      phase("grill"),
+      phase("proposal"),
+      phase("specs", {
+        done: true,
+        files: [
+          "/repo/openspec/changes/ship-export/specs/csv-export/spec.md",
+          "/repo/openspec/changes/ship-export/specs/pdf-export/spec.md",
+        ],
+      }),
+      phase("design"),
+      phase("tasks"),
+    ],
+  });
+}
+
+const bodyText = () => document.querySelector(".modal-body")?.textContent ?? "";
+
+describe("multi-spec modal tabs", () => {
+  it("renders one tab per spec file, showing only the active file's content", async () => {
+    mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([changeWithSpecs()])),
+      readFile: vi.fn().mockImplementation((f: string) =>
+        Promise.resolve({ ok: true, contents: f.includes("csv") ? "The system exports CSV." : "The system exports PDF." })
+      ),
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await screen.findByText("ship-export");
+    await user.click(screen.getByText("specs"));
+
+    const csvTab = await screen.findByRole("tab", { name: "csv-export" });
+    const pdfTab = screen.getByRole("tab", { name: "pdf-export" });
+    expect(csvTab).toBeInTheDocument();
+    expect(pdfTab).toBeInTheDocument();
+
+    await waitFor(() => expect(bodyText()).toContain("The system exports CSV."));
+    expect(bodyText()).not.toContain("The system exports PDF.");
+
+    await user.click(pdfTab);
+    await waitFor(() => expect(bodyText()).toContain("The system exports PDF."));
+    expect(bodyText()).not.toContain("The system exports CSV.");
+
+    await user.click(csvTab);
+    await waitFor(() => expect(bodyText()).toContain("The system exports CSV."));
+    expect(bodyText()).not.toContain("The system exports PDF.");
+  });
+
+  it("shows no tabs for a single-file artifact", async () => {
+    mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([changeWithFile()])),
+      readFile: vi.fn().mockResolvedValue({ ok: true, contents: "only one file" }),
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await screen.findByText("file-demo");
+    await user.click(screen.getByText("grill"));
+
+    await waitFor(() => expect(bodyText()).toBe("only one file"));
+    expect(screen.queryByRole("tab")).toBeNull();
+  });
+
+  it("resets to the first tab when a different multi-spec artifact is opened", async () => {
+    mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([changeWithSpecs()])),
+      readFile: vi.fn().mockImplementation((f: string) =>
+        Promise.resolve({ ok: true, contents: f.includes("csv") ? "CSV body" : "PDF body" })
+      ),
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await screen.findByText("ship-export");
+    await user.click(screen.getByText("specs"));
+
+    await user.click(await screen.findByRole("tab", { name: "pdf-export" }));
+    await waitFor(() => expect(bodyText()).toContain("PDF body"));
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await user.click(screen.getByText("specs"));
+
+    await waitFor(() => expect(bodyText()).toContain("CSV body"));
+    expect(screen.getByRole("tab", { name: "csv-export" })).toHaveAttribute("aria-selected", "true");
+  });
+});
