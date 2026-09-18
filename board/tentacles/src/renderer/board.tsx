@@ -143,11 +143,12 @@ function ApplyBar({ c }: { c: Change }) {
 
 export function ChangeCard({
   c,
+  showBranch,
   openArtifacts,
   onArchive,
   busy,
   removing,
-}: { c: Change; onArchive: (c: Change) => void; busy: boolean; removing: boolean } & WithOpen) {
+}: { c: Change; showBranch: boolean; onArchive: (c: Change) => void; busy: boolean; removing: boolean } & WithOpen) {
   const badge = c.complete ? (
     <span className="badge complete">COMPLETE</span>
   ) : c.review === "pending" ? (
@@ -167,6 +168,7 @@ export function ChangeCard({
     <div className={`change ${removing ? "archiving" : ""}`}>
       <div className="change-head">
         <span className="cname">{c.change}</span>
+        {showBranch && c.branch ? <span className="branch-chip">{c.branch}</span> : null}
         {typeBadge}
         {badge}
         <span className="crepo">{c.schema}</span>
@@ -194,7 +196,9 @@ export function ChangeCard({
 }
 
 export function RepoGroup({
-  repo,
+  repositoryId,
+  repositoryName,
+  nested,
   list,
   collapsed,
   onToggle,
@@ -203,10 +207,12 @@ export function RepoGroup({
   archivingKeys,
   removingKeys,
 }: {
-  repo: string;
+  repositoryId: string;
+  repositoryName: string;
+  nested: boolean;
   list: Change[];
   collapsed: boolean;
-  onToggle: (repo: string) => void;
+  onToggle: (repositoryId: string) => void;
   onArchive: (c: Change) => void;
   archivingKeys: Set<string>;
   removingKeys: Set<string>;
@@ -214,9 +220,9 @@ export function RepoGroup({
   const done = list.filter((c) => c.complete).length;
   return (
     <div className={`repo-group ${collapsed ? "collapsed" : ""}`}>
-      <div className="repo-bar" onClick={() => onToggle(repo)}>
+      <div className="repo-bar" onClick={() => onToggle(repositoryId)}>
         <span className="repo-caret">▼</span>
-        <span className="repo-title">{repo}</span>
+        <span className="repo-title">{repositoryName}</span>
         <span className="repo-summary">
           {list.length} change(s) · {done} complete
         </span>
@@ -228,6 +234,7 @@ export function RepoGroup({
             <ChangeCard
               key={k}
               c={c}
+              showBranch={nested}
               openArtifacts={openArtifacts}
               onArchive={onArchive}
               busy={archivingKeys.has(k)}

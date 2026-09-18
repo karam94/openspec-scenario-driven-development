@@ -5,9 +5,9 @@ import { makeChange, makeStatus, mockApi, phase } from "./test-fixtures";
 
 describe("the renderer renders the board state", () => {
   it("renders changes grouped by repo with correct ordering and badges", async () => {
-    const incomplete = makeChange({ change: "a-incomplete", repo: "repo-a", repoPath: "/Code/repo-a", type: "feature", complete: false });
-    const complete = makeChange({ change: "z-complete", repo: "repo-a", repoPath: "/Code/repo-a", type: "refactor", complete: true, review: "passed" });
-    const other = makeChange({ change: "b-other", repo: "repo-b", repoPath: "/Code/repo-b" });
+    const incomplete = makeChange({ change: "a-incomplete", repo: "repo-a", repoPath: "/Code/repo-a", repositoryId: "/Code/repo-a/.git", repositoryName: "repo-a", type: "feature", complete: false });
+    const complete = makeChange({ change: "z-complete", repo: "repo-a", repoPath: "/Code/repo-a", repositoryId: "/Code/repo-a/.git", repositoryName: "repo-a", type: "refactor", complete: true, review: "passed" });
+    const other = makeChange({ change: "b-other", repo: "repo-b", repoPath: "/Code/repo-b", repositoryId: "/Code/repo-b/.git", repositoryName: "repo-b" });
     mockApi({ getStatus: vi.fn().mockResolvedValue(makeStatus([complete, incomplete, other], 2)) });
 
     const { container } = render(<App />);
@@ -25,6 +25,34 @@ describe("the renderer renders the board state", () => {
     expect(screen.getAllByText("FEATURE")).toHaveLength(2);
     expect(screen.getByText("REFACTOR")).toBeInTheDocument();
     expect(screen.getByText("COMPLETE")).toBeInTheDocument();
+  });
+
+  it("shows a branch chip per card only when worktrees are grouped (nested)", async () => {
+    const featA = makeChange({
+      change: "feat-a-change", repo: "wings-core-a", repoPath: "/Code/wings-core-a",
+      repositoryId: "/Code/wings-core/.git", repositoryName: "wings-core", branch: "feat-a",
+    });
+    const featB = makeChange({
+      change: "feat-b-change", repo: "wings-core-b", repoPath: "/Code/wings-core-b",
+      repositoryId: "/Code/wings-core/.git", repositoryName: "wings-core", branch: "feat-b",
+    });
+    const solo = makeChange({
+      change: "solo-change", repo: "lonely", repoPath: "/Code/lonely",
+      repositoryId: "/Code/lonely/.git", repositoryName: "lonely", branch: "feat-solo",
+    });
+    mockApi({ getStatus: vi.fn().mockResolvedValue(makeStatus([featA, featB, solo], 2)) });
+
+    const { container } = render(<App />);
+    await screen.findByText("feat-a-change");
+
+    // both concurrent worktrees show their branch chip
+    const chips = [...container.querySelectorAll(".branch-chip")].map((e) => e.textContent);
+    expect(chips).toContain("feat-a");
+    expect(chips).toContain("feat-b");
+
+    // the lone worktree shows no branch chip (renders as today)
+    const soloCard = screen.getByText("solo-change").closest(".change");
+    expect(soloCard?.querySelector(".branch-chip")).toBeNull();
   });
 
   it("renders each phase's state in the chain", async () => {

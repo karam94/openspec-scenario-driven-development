@@ -49,6 +49,7 @@ main { padding:20px 24px 60px; max-width:1200px; margin:0 auto; }
 .badge.planning { background:color-mix(in srgb,var(--warn) 20%,transparent); color:var(--warn); }
 .badge.type-refactor { background:color-mix(in srgb,#a371f7 22%,transparent); color:#a371f7; }
 .badge.type-feature { background:color-mix(in srgb,var(--accent) 20%,transparent); color:var(--accent); }
+.branch-chip { font-size:0.7rem; padding:2px 9px; border-radius:6px; font-family:ui-monospace,monospace; background:color-mix(in srgb,var(--muted) 16%,transparent); color:var(--muted); }
 .node.progress { border-color:var(--accent); }
 .spinner { display:inline-block; width:11px; height:11px; border:2px solid color-mix(in srgb,var(--accent) 35%,transparent); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; vertical-align:-1px; margin-right:4px; }
 @keyframes spin { to { transform:rotate(360deg); } }

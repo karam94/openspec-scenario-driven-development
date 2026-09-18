@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Change, StatusResult } from "../shared/ipc-contract";
 import { RepoGroup } from "./board";
+import { groupWorktrees } from "../shared/grouping";
 import { Modal, type ModalSection } from "./modal";
 import { SettingsPanel } from "./settings";
 
@@ -171,16 +172,7 @@ export default function App() {
   const grouped = useMemo(() => {
     if (!status || "error" in status) return [];
     const visible = status.changes.filter((c) => !archived.has(keyOf(c)));
-    const byRepo = new Map<string, Change[]>();
-    for (const c of visible) {
-      const list = byRepo.get(c.repo);
-      if (list) list.push(c);
-      else byRepo.set(c.repo, [c]);
-    }
-    for (const list of byRepo.values()) {
-      list.sort((a, b) => (a.complete ? 1 : 0) - (b.complete ? 1 : 0) || a.change.localeCompare(b.change));
-    }
-    return [...byRepo.keys()].sort().map((repo) => ({ repo, list: byRepo.get(repo) as Change[] }));
+    return groupWorktrees(visible);
   }, [status, archived]);
 
   const repoCount = status && "repoCount" in status ? status.repoCount : 0;
@@ -199,12 +191,14 @@ export default function App() {
   } else if (grouped.length === 0) {
     main = <div className="empty">No active OpenSpec changes found across {repoCount} repo(s).</div>;
   } else {
-    main = grouped.map(({ repo, list }) => (
+    main = grouped.map((g) => (
       <RepoGroup
-        key={repo}
-        repo={repo}
-        list={list}
-        collapsed={collapsed.has(repo)}
+        key={g.repositoryId}
+        repositoryId={g.repositoryId}
+        repositoryName={g.repositoryName}
+        nested={g.nested}
+        list={g.worktrees}
+        collapsed={collapsed.has(g.repositoryId)}
         onToggle={toggleRepo}
         openArtifacts={openArtifacts}
         onArchive={onArchive}
