@@ -33,6 +33,45 @@ describe("secure window creation", () => {
     expect(win).toBeInstanceOf(FakeBrowserWindow);
   });
 
+  it("shows the window by default when no show option is given", () => {
+    const seen: Array<{ show?: unknown }> = [];
+    class FakeBrowserWindow {
+      loadFile = vi.fn();
+      webContents = { setWindowOpenHandler: vi.fn() };
+      constructor(opts: { show?: unknown }) {
+        seen.push(opts);
+      }
+    }
+
+    createWindow(FakeBrowserWindow as unknown as typeof BrowserWindow, {
+      preloadPath: "/p/preload.js",
+      indexPath: "/i/index.html",
+      openExternal: vi.fn(),
+    });
+
+    expect(seen[0]?.show).toBe(true);
+  });
+
+  it("creates a hidden window when show is false (e2e: no focus-stealing window)", () => {
+    const seen: Array<{ show?: unknown }> = [];
+    class FakeBrowserWindow {
+      loadFile = vi.fn();
+      webContents = { setWindowOpenHandler: vi.fn() };
+      constructor(opts: { show?: unknown }) {
+        seen.push(opts);
+      }
+    }
+
+    createWindow(FakeBrowserWindow as unknown as typeof BrowserWindow, {
+      preloadPath: "/p/preload.js",
+      indexPath: "/i/index.html",
+      openExternal: vi.fn(),
+      show: false,
+    });
+
+    expect(seen[0]?.show).toBe(false);
+  });
+
   it("secureWebPreferences pins the hardened renderer flags (no direct Node in the renderer)", () => {
     expect(secureWebPreferences("/p/preload.js")).toEqual({
       preload: "/p/preload.js",
