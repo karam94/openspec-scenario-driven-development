@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, Notification, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Notification, shell, dialog } from "electron";
+import type { OpenDialogOptions } from "electron";
 import path from "node:path";
 import os from "node:os";
 import core from "./core";
@@ -10,6 +11,7 @@ import {
   resolvePathFor,
   makeNotifier,
   makeNativeNotify,
+  makeDirectoryChooser,
   settingsFilePath,
   readSettingsFile,
   writeSettingsFile,
@@ -51,6 +53,18 @@ app.whenReady().then(() => {
     home: os.homedir(),
   };
 
+  // Native "Browse…" directory picker for the scan-root setting. Presented as a
+  // sheet on the focused window when one is open; the openDirectory property
+  // restricts the dialog to choosing a single existing directory.
+  const chooseDirectory = makeDirectoryChooser(() => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    const options: OpenDialogOptions = {
+      title: "Select scan root directory",
+      properties: ["openDirectory", "createDirectory"],
+    };
+    return win ? dialog.showOpenDialog(win, options) : dialog.showOpenDialog(options);
+  });
+
   // Native completion notifications: the notifier holds last-seen completion
   // state across scans and shows a native banner per newly-completed phase /
   // change, gated on the persisted preference (read fresh per scan so a Settings
@@ -70,5 +84,6 @@ app.whenReady().then(() => {
     windowOpts,
     observe: notifier.observe,
     settings,
+    chooseDirectory,
   });
 });

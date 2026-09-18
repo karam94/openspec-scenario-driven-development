@@ -1,4 +1,4 @@
-// Type-only IPC contract: the single source of truth for the five board
+// Type-only IPC contract: the single source of truth for the six board
 // channels and their payload/result shapes. Everything here is a type, so it
 // erases at compile and adds no runtime coupling between the CJS main bundle
 // and the Vite renderer bundle.
@@ -67,6 +67,10 @@ export type SetSettingsResult =
 // banner (sounds muted), or nothing at all (notifications muted).
 export type NotificationSetting = "enabled" | "silent" | "muted";
 
+// A native directory-picker result. `path` is the chosen directory, or null when
+// the user cancels the dialog (the renderer then leaves the input untouched).
+export type ChooseDirectoryResult = { path: string | null };
+
 // Exact method → channel-name mapping: the single source of truth for the
 // boundary. Both the preload bridge and the main-process IPC registry are typed
 // against it, so a typo, a missing channel, OR a swap (mapping a method to a
@@ -77,6 +81,7 @@ export interface ChannelMap {
   archive: "board:archive";
   getSettings: "board:getSettings";
   setSettings: "board:setSettings";
+  chooseDirectory: "board:chooseDirectory";
 }
 
 export type Channel = ChannelMap[keyof ChannelMap];
@@ -89,4 +94,5 @@ export interface ElectronAPI {
   archive(payload: ArchiveArgs): Promise<ArchiveResult>;
   getSettings(): Promise<BoardSettings>;
   setSettings(payload: SetSettingsArgs): Promise<SetSettingsResult>;
+  chooseDirectory(): Promise<ChooseDirectoryResult>;
 }

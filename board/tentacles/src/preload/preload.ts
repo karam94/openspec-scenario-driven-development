@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { ChannelMap, ElectronAPI } from "../shared/ipc-contract";
 
-// Exactly five named channels — no generic command passthrough. A sandboxed
+// Exactly six named channels — no generic command passthrough. A sandboxed
 // preload cannot import wiring.ts at runtime, so the channel strings are
 // declared here; typing the map as the shared ChannelMap asserts each method is
 // bound to its exact channel (a typo, missing key, or swap fails to compile).
@@ -11,6 +11,7 @@ const CHANNELS: ChannelMap = {
   archive: "board:archive",
   getSettings: "board:getSettings",
   setSettings: "board:setSettings",
+  chooseDirectory: "board:chooseDirectory",
 };
 
 const api: ElectronAPI = {
@@ -19,6 +20,7 @@ const api: ElectronAPI = {
   archive: (payload) => ipcRenderer.invoke(CHANNELS.archive, payload),
   getSettings: () => ipcRenderer.invoke(CHANNELS.getSettings),
   setSettings: (payload) => ipcRenderer.invoke(CHANNELS.setSettings, payload),
+  chooseDirectory: () => ipcRenderer.invoke(CHANNELS.chooseDirectory),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

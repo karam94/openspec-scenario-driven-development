@@ -101,8 +101,12 @@ main { padding:20px 24px 60px; max-width:1200px; margin:0 auto; }
 .settings-modal { max-width:560px; }
 .settings-body { padding:18px 20px; display:flex; flex-direction:column; gap:10px; }
 .settings-label { font-size:0.85rem; color:var(--muted); }
+.settings-input-row { display:flex; gap:8px; align-items:stretch; }
 .settings-input { font-family:ui-monospace,monospace; font-size:0.85rem; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg); }
+.settings-input-row .settings-input { flex:1; min-width:0; }
 .settings-input:focus { outline:none; border-color:var(--accent); }
+.settings-browse { border:1px solid var(--border); background:none; color:var(--fg); font-size:0.85rem; padding:8px 14px; border-radius:6px; cursor:pointer; white-space:nowrap; }
+.settings-browse:hover { border-color:var(--accent); color:var(--accent); }
 .settings-error { color:#f87171; font-size:0.82rem; }
 .settings-radios { display:flex; flex-direction:column; gap:6px; }
 .settings-radio { display:flex; align-items:center; gap:8px; font-size:0.85rem; color:var(--fg); cursor:pointer; }
