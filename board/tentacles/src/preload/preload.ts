@@ -8,6 +8,7 @@ import type { ChannelMap, ElectronAPI } from "../shared/ipc-contract";
 const CHANNELS: ChannelMap = {
   getStatus: "board:getStatus",
   readFile: "board:readFile",
+  getDiff: "board:getDiff",
   archive: "board:archive",
   getSettings: "board:getSettings",
   setSettings: "board:setSettings",
@@ -17,6 +18,7 @@ const CHANNELS: ChannelMap = {
 const api: ElectronAPI = {
   getStatus: () => ipcRenderer.invoke(CHANNELS.getStatus),
   readFile: (filePath) => ipcRenderer.invoke(CHANNELS.readFile, filePath),
+  getDiff: (repoPath) => ipcRenderer.invoke(CHANNELS.getDiff, repoPath),
   archive: (payload) => ipcRenderer.invoke(CHANNELS.archive, payload),
   getSettings: () => ipcRenderer.invoke(CHANNELS.getSettings),
   setSettings: (payload) => ipcRenderer.invoke(CHANNELS.setSettings, payload),

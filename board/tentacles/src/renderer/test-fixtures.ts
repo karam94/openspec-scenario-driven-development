@@ -37,6 +37,7 @@ export function makeStatus(changes: Change[], repoCount = 1): StatusResult {
 export type MockApi = {
   getStatus: ReturnType<typeof vi.fn>;
   readFile: ReturnType<typeof vi.fn>;
+  getDiff: ReturnType<typeof vi.fn>;
   archive: ReturnType<typeof vi.fn>;
   getSettings: ReturnType<typeof vi.fn>;
   setSettings: ReturnType<typeof vi.fn>;
@@ -47,6 +48,7 @@ export function mockApi(over: Partial<ElectronAPI> = {}): MockApi {
   const api = {
     getStatus: vi.fn().mockResolvedValue(makeStatus([])),
     readFile: vi.fn().mockResolvedValue({ ok: true, contents: "" }),
+    getDiff: vi.fn().mockResolvedValue({ ok: true, files: [] }),
     archive: vi.fn().mockResolvedValue({ ok: true }),
     getSettings: vi.fn().mockResolvedValue({ root: "/Code", notifications: "enabled" }),
     setSettings: vi.fn().mockResolvedValue({ ok: true, root: "/Code", notifications: "enabled" }),

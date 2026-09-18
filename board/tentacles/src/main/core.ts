@@ -20,6 +20,9 @@ import type {
   Apply,
   ArchiveResult,
   Change,
+  DiffFile,
+  DiffHunk,
+  DiffResult,
   NotificationSetting,
   Phase,
   PhaseId,
@@ -276,6 +279,111 @@ export function branchCommits(repo: string, branch: string | null): Promise<numb
     const fallback = await countAgainst("master");
     return fallback ?? 0;
   })();
+}
+
+// Run a git subcommand and return its stdout, or null when the ref/command is
+// invalid and produced nothing. `git diff` finds differences and still exits 0;
+// `git diff --no-index` exits non-zero when files differ but writes the diff to
+// stdout, so a non-empty stdout always wins over the exit code. No shell: the
+// repo path and any file/ref are argv elements, never interpreted (see
+// branchCommits for the same discipline).
+function runGitText(repo: string, args: string[]): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile("git", ["-C", repo, ...args], { timeout: 8000, maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
+      const out = String(stdout ?? "");
+      if (out.length > 0) return resolve(out);
+      if (err) return resolve(null);
+      resolve("");
+    });
+  });
+}
+
+// Tracked changes as one unified diff: base → working tree, which is committed-on-
+// branch ∪ staged ∪ unstaged in a single pass. Base resolves origin/HEAD → master
+// like branchCommits; if neither ref exists, fall back to HEAD (working tree vs
+// last commit).
+async function trackedDiff(repo: string): Promise<string> {
+  for (const base of ["origin/HEAD", "master"]) {
+    const out = await runGitText(repo, ["diff", base, "--"]);
+    if (out !== null) return out;
+  }
+  const head = await runGitText(repo, ["diff", "HEAD", "--"]);
+  return head ?? "";
+}
+
+// Untracked files are invisible to a normal diff, so each is rendered against
+// /dev/null (an all-additions diff) and concatenated. --no-index exits 1 with the
+// diff on stdout, which runGitText handles.
+async function untrackedDiff(repo: string): Promise<string> {
+  const list = await runGitText(repo, ["ls-files", "--others", "--exclude-standard"]);
+  const files = String(list ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+  const parts: string[] = [];
+  for (const f of files) {
+    const d = await runGitText(repo, ["diff", "--no-index", "--", "/dev/null", f]);
+    if (d) parts.push(d);
+  }
+  return parts.join("\n");
+}
+
+// Pure: raw unified-diff text → structured per-file model. Status is inferred from
+// the git header lines (new file / deleted file / rename / Binary / --- +++ /dev/null),
+// each hunk's lines classified add / del / context. Index and "\ No newline" lines
+// are ignored.
+export function parseDiff(raw: string): DiffFile[] {
+  const files: DiffFile[] = [];
+  let file: DiffFile | null = null;
+  let hunk: DiffHunk | null = null;
+
+  for (const line of String(raw ?? "").split("\n")) {
+    if (line.startsWith("diff --git")) {
+      const m = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+      file = { path: m ? (m[2] as string) : "", status: "modified", hunks: [] };
+      files.push(file);
+      hunk = null;
+      continue;
+    }
+    if (!file) continue;
+    if (line.startsWith("new file")) { file.status = "added"; continue; }
+    if (line.startsWith("deleted file")) { file.status = "deleted"; continue; }
+    if (line.startsWith("rename to ")) { file.status = "renamed"; file.path = line.slice(10).trim(); continue; }
+    if (line.startsWith("rename from ")) { file.status = "renamed"; continue; }
+    if (line.startsWith("Binary files")) { file.status = "binary"; continue; }
+    if (line.startsWith("--- ")) {
+      if (line.slice(4).trim() === "/dev/null") file.status = "added";
+      continue;
+    }
+    if (line.startsWith("+++ ")) {
+      const p = line.slice(4).trim();
+      if (p === "/dev/null") file.status = "deleted";
+      else file.path = p.replace(/^b\//, "");
+      continue;
+    }
+    if (line.startsWith("@@")) {
+      hunk = { lines: [] };
+      file.hunks.push(hunk);
+      continue;
+    }
+    if (line.startsWith("\\")) continue;
+    if (!hunk) continue;
+    if (line.startsWith("+")) hunk.lines.push({ kind: "add", text: line.slice(1) });
+    else if (line.startsWith("-")) hunk.lines.push({ kind: "del", text: line.slice(1) });
+    else if (line.startsWith(" ")) hunk.lines.push({ kind: "context", text: line.slice(1) });
+  }
+  return files;
+}
+
+// Guarded branch diff: only for a currently-discovered repo (mirrors readArtifact /
+// archiveChange), returning the structured branch-vs-base ∪ working-tree model.
+export async function getDiff(args: Args, repoPath: string): Promise<DiffResult> {
+  const repos = discoverRepos(args);
+  const okRepo = repos.some((r) => path.resolve(r) === path.resolve(repoPath || ""));
+  if (!okRepo) return { ok: false, error: "unknown repo" };
+  try {
+    const raw = [await trackedDiff(repoPath), await untrackedDiff(repoPath)].filter(Boolean).join("\n");
+    return { ok: true, files: parseDiff(raw) };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
 }
 
 export async function shapeChange(repo: string, change: string, status: RawStatus | null): Promise<Change> {
@@ -590,6 +698,8 @@ export default {
   changeBranch,
   prForBranch,
   branchCommits,
+  parseDiff,
+  getDiff,
   shapeChange,
   computeNotifications,
   parseSettings,
