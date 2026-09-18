@@ -66,6 +66,58 @@ describe("getDiff — branch-vs-base ∪ working tree", () => {
     const res = await getDiff(args, "/etc");
     expect(res.ok).toBe(false);
   });
+
+  it("uses merge-base semantics: upstream-only commits are not shown as branch removals", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diff-mb-"));
+    created.push(dir);
+    fs.mkdirSync(path.join(dir, "openspec", "changes"), { recursive: true });
+    git(dir, ["init", "-b", "master"]);
+    git(dir, ["config", "user.email", "t@t.t"]);
+    git(dir, ["config", "user.name", "t"]);
+    fs.writeFileSync(path.join(dir, "base.txt"), "base\n");
+    git(dir, ["add", "base.txt"]);
+    git(dir, ["commit", "-m", "base"]); // fork point
+    git(dir, ["checkout", "-b", "feature"]);
+    fs.writeFileSync(path.join(dir, "feat.txt"), "feature work\n");
+    git(dir, ["add", "feat.txt"]);
+    git(dir, ["commit", "-m", "feat"]);
+    // master advances after the branch diverged (upstream-only commit).
+    git(dir, ["checkout", "master"]);
+    fs.writeFileSync(path.join(dir, "upstream.txt"), "landed upstream\n");
+    git(dir, ["add", "upstream.txt"]);
+    git(dir, ["commit", "-m", "upstream"]);
+    git(dir, ["checkout", "feature"]);
+
+    const res = await getDiff({ repos: [dir], root: "/nonexistent", depth: 1 }, dir);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const paths = res.files.map((f) => f.path);
+    expect(paths).toContain("feat.txt"); // the branch's own contribution
+    expect(paths).not.toContain("upstream.txt"); // not a branch change
+  });
+
+  it("preserves a non-ASCII untracked filename (no quoting, no trimming)", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diff-uni-"));
+    created.push(dir);
+    fs.mkdirSync(path.join(dir, "openspec", "changes"), { recursive: true });
+    git(dir, ["init", "-b", "master"]);
+    git(dir, ["config", "user.email", "t@t.t"]);
+    git(dir, ["config", "user.name", "t"]);
+    fs.writeFileSync(path.join(dir, "seed.txt"), "seed\n");
+    git(dir, ["add", "seed.txt"]);
+    git(dir, ["commit", "-m", "seed"]);
+    const name = "naïve café.txt";
+    fs.writeFileSync(path.join(dir, name), "content\n");
+
+    const res = await getDiff({ repos: [dir], root: "/nonexistent", depth: 1 }, dir);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const byPath = Object.fromEntries(res.files.map((f) => [f.path, f]));
+    expect(byPath[name]).toBeDefined();
+    expect(byPath[name]!.status).toBe("added");
+  });
 });
 
 describe("parseDiff — raw unified diff → structured model", () => {

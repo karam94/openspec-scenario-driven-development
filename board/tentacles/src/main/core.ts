@@ -298,28 +298,44 @@ function runGitText(repo: string, args: string[]): Promise<string | null> {
   });
 }
 
-// Tracked changes as one unified diff: base → working tree, which is committed-on-
-// branch ∪ staged ∪ unstaged in a single pass. Base resolves origin/HEAD → master
-// like branchCommits; if neither ref exists, fall back to HEAD (working tree vs
-// last commit).
-async function trackedDiff(repo: string): Promise<string> {
+// Resolve the merge base (fork point) of the current branch against its upstream
+// base, trying origin/HEAD then master. Returns the merge-base commit sha, or null
+// when neither ref resolves. Argv-only, no shell (see branchCommits).
+async function mergeBase(repo: string): Promise<string | null> {
   for (const base of ["origin/HEAD", "master"]) {
-    const out = await runGitText(repo, ["diff", base, "--"]);
+    const out = await runGitText(repo, ["merge-base", base, "HEAD"]);
+    if (out !== null && out.trim()) return out.trim();
+  }
+  return null;
+}
+
+// Tracked changes as one unified diff: merge-base → working tree, i.e. exactly what
+// this branch contributes (committed-on-branch ∪ staged ∪ unstaged) while EXCLUDING
+// commits that landed on the base after the branch diverged. Comparing against the
+// base tip instead would report upstream-only files as branch removals. Falls back
+// to HEAD (working tree vs last commit) when no base ref resolves. quotePath=false
+// keeps non-ASCII paths literal in the diff headers.
+async function trackedDiff(repo: string): Promise<string> {
+  const base = await mergeBase(repo);
+  if (base) {
+    const out = await runGitText(repo, ["-c", "core.quotePath=false", "diff", base, "--"]);
     if (out !== null) return out;
   }
-  const head = await runGitText(repo, ["diff", "HEAD", "--"]);
+  const head = await runGitText(repo, ["-c", "core.quotePath=false", "diff", "HEAD", "--"]);
   return head ?? "";
 }
 
 // Untracked files are invisible to a normal diff, so each is rendered against
-// /dev/null (an all-additions diff) and concatenated. --no-index exits 1 with the
-// diff on stdout, which runGitText handles.
+// /dev/null (an all-additions diff) and concatenated. -z gives NUL-delimited,
+// unquoted paths so names with spaces, quotes, newlines, or non-ASCII survive
+// intact (no trimming); quotePath=false keeps the diff header path literal too.
+// --no-index exits 1 with the diff on stdout, which runGitText handles.
 async function untrackedDiff(repo: string): Promise<string> {
-  const list = await runGitText(repo, ["ls-files", "--others", "--exclude-standard"]);
-  const files = String(list ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+  const list = await runGitText(repo, ["ls-files", "--others", "--exclude-standard", "-z"]);
+  const files = String(list ?? "").split("\0").filter((f) => f.length > 0);
   const parts: string[] = [];
   for (const f of files) {
-    const d = await runGitText(repo, ["diff", "--no-index", "--", "/dev/null", f]);
+    const d = await runGitText(repo, ["-c", "core.quotePath=false", "diff", "--no-index", "--", "/dev/null", f]);
     if (d) parts.push(d);
   }
   return parts.join("\n");
