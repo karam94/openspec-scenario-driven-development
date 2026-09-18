@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { getDiff, parseDiff, type Args } from "./core";
+import { getDiff, getFileDiff, parseDiff, type Args } from "./core";
 
 const created: string[] = [];
 
@@ -249,5 +249,49 @@ describe("parseDiff — raw unified diff → structured model", () => {
     ].join("\n");
     const files = parseDiff(raw);
     expect(files.map((f) => f.path)).toEqual(["one.txt", "two.txt"]);
+  });
+});
+
+describe("getFileDiff — full-context diff of one file", () => {
+  function makeRepoWithBigChange(): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "filediff-"));
+    created.push(dir);
+    fs.mkdirSync(path.join(dir, "openspec", "changes"), { recursive: true });
+    git(dir, ["init", "-b", "master"]);
+    git(dir, ["config", "user.email", "t@t.t"]);
+    git(dir, ["config", "user.name", "t"]);
+    const base = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join("\n") + "\n";
+    fs.writeFileSync(path.join(dir, "big.txt"), base);
+    fs.writeFileSync(path.join(dir, "other.txt"), "unrelated\n");
+    git(dir, ["add", "."]);
+    git(dir, ["commit", "-m", "base"]);
+    git(dir, ["checkout", "-b", "feature"]);
+    fs.writeFileSync(path.join(dir, "big.txt"), base.replace("line 10", "line TEN"));
+    git(dir, ["add", "big.txt"]);
+    git(dir, ["commit", "-m", "change one line"]);
+    return dir;
+  }
+
+  it("returns the whole file as context around the change, scoped to that one path", async () => {
+    const dir = makeRepoWithBigChange();
+    const args: Args = { repos: [dir], root: "/nonexistent", depth: 1 };
+
+    const res = await getFileDiff(args, dir, "big.txt");
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.files.map((f) => f.path)).toEqual(["big.txt"]);
+    const lines = res.files[0]!.hunks.flatMap((h) => h.lines);
+    expect(lines.some((l) => l.kind === "del" && l.text === "line 10")).toBe(true);
+    expect(lines.some((l) => l.kind === "add" && l.text === "line TEN")).toBe(true);
+    // Lines far from the change that a default 3-line context would omit are present.
+    expect(lines.some((l) => l.kind === "context" && l.text === "line 1")).toBe(true);
+    expect(lines.some((l) => l.kind === "context" && l.text === "line 20")).toBe(true);
+  });
+
+  it("refuses a path outside any discovered repo and runs no git", async () => {
+    const args: Args = { repos: ["/nonexistent-repo"], root: "/nonexistent", depth: 1 };
+    const res = await getFileDiff(args, "/etc", "passwd");
+    expect(res.ok).toBe(false);
   });
 });

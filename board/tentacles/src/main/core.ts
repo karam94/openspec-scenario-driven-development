@@ -434,6 +434,38 @@ export async function getDiff(args: Args, repoPath: string): Promise<DiffResult>
   }
 }
 
+// One file's diff with its ENTIRE contents as context (merge-base → working tree),
+// so the renderer can show the whole file with the changes highlighted inline. A
+// very large --unified window means git emits every unchanged line as context
+// rather than the default three around each hunk. Falls back HEAD → untracked
+// (--no-index vs /dev/null) exactly as the whole-repo diff does. Guarded to a
+// discovered repo like getDiff; the file path is an argv element after `--`, never
+// a shell token or an option.
+async function fileDiffFullContext(repo: string, filePath: string): Promise<string> {
+  const ctx = "--unified=1000000";
+  const base = await mergeBase(repo);
+  if (base) {
+    const out = await runGitText(repo, ["-c", "core.quotePath=false", "diff", base, ctx, "--", filePath]);
+    if (out) return out;
+  }
+  const head = await runGitText(repo, ["-c", "core.quotePath=false", "diff", "HEAD", ctx, "--", filePath]);
+  if (head) return head;
+  const untracked = await runGitText(repo, ["-c", "core.quotePath=false", "diff", "--no-index", ctx, "--", "/dev/null", filePath]);
+  return untracked ?? "";
+}
+
+export async function getFileDiff(args: Args, repoPath: string, filePath: string): Promise<DiffResult> {
+  const repos = discoverRepos(args);
+  const okRepo = repos.some((r) => path.resolve(r) === path.resolve(repoPath || ""));
+  if (!okRepo) return { ok: false, error: "unknown repo" };
+  if (!filePath) return { ok: false, error: "no file" };
+  try {
+    return { ok: true, files: parseDiff(await fileDiffFullContext(repoPath, filePath)) };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 export async function shapeChange(repo: string, change: string, status: RawStatus | null): Promise<Change> {
   const artifactPaths = (status && status.artifactPaths) || {};
   const planningComplete = !!(status && status.isPlanningComplete);
@@ -748,6 +780,7 @@ export default {
   branchCommits,
   parseDiff,
   getDiff,
+  getFileDiff,
   shapeChange,
   computeNotifications,
   parseSettings,

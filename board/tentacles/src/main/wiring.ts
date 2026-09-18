@@ -34,6 +34,7 @@ export const IPC: ChannelMap = {
   getStatus: "board:getStatus",
   readFile: "board:readFile",
   getDiff: "board:getDiff",
+  getFileDiff: "board:getFileDiff",
   archive: "board:archive",
   getSettings: "board:getSettings",
   setSettings: "board:setSettings",
@@ -45,6 +46,7 @@ export interface BoardCore {
   getStatus(args: Args): Promise<StatusResult>;
   readArtifact(args: Args, filePath: string): ReadFileResult;
   getDiff(args: Args, repoPath: string): Promise<DiffResult>;
+  getFileDiff(args: Args, repoPath: string, filePath: string): Promise<DiffResult>;
   archiveChange(args: Args, repoPath: string, change: string): Promise<ArchiveResult>;
 }
 
@@ -116,6 +118,8 @@ export function makeHandlers(
     },
     readFile: (_event: IpcMainInvokeEvent, filePath: string) => core.readArtifact(getArgs(), filePath),
     getDiff: (_event: IpcMainInvokeEvent, repoPath: string) => core.getDiff(getArgs(), repoPath),
+    getFileDiff: (_event: IpcMainInvokeEvent, repoPath: string, filePath: string) =>
+      core.getFileDiff(getArgs(), repoPath, filePath),
     archive: (_event: IpcMainInvokeEvent, payload: ArchiveArgs | undefined) => {
       const { repoPath, change } = payload || ({} as Partial<ArchiveArgs>);
       return core.archiveChange(getArgs(), repoPath as string, change as string);
@@ -151,6 +155,7 @@ export function registerIpc(
   ipcMain.handle(IPC.getStatus, handlers.getStatus);
   ipcMain.handle(IPC.readFile, handlers.readFile);
   ipcMain.handle(IPC.getDiff, handlers.getDiff);
+  ipcMain.handle(IPC.getFileDiff, handlers.getFileDiff);
   ipcMain.handle(IPC.archive, handlers.archive);
   ipcMain.handle(IPC.getSettings, handlers.getSettings);
   ipcMain.handle(IPC.setSettings, handlers.setSettings);

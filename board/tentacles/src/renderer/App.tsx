@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { Change, DiffResult, StatusResult } from "../shared/ipc-contract";
+import type { Change, DiffFile, DiffResult, StatusResult } from "../shared/ipc-contract";
 import { RepoGroup } from "./board";
 import { Modal, type ModalSection } from "./modal";
 import { DiffModal } from "./diffModal";
@@ -140,6 +140,21 @@ export default function App() {
 
   const closeDiff = useCallback(() => setDiff((d) => ({ ...d, open: false })), []);
 
+  const getFullFile = useCallback(
+    async (filePath: string): Promise<DiffFile | null> => {
+      const repoPath = diff.repoPath;
+      if (!repoPath) return null;
+      try {
+        const res = await window.electronAPI.getFileDiff(repoPath, filePath);
+        if (!res.ok) return null;
+        return res.files.find((f) => f.path === filePath) ?? res.files[0] ?? null;
+      } catch {
+        return null;
+      }
+    },
+    [diff.repoPath]
+  );
+
   useEffect(() => {
     if (!diff.open || !diff.repoPath) return;
     const repoPath = diff.repoPath;
@@ -272,6 +287,7 @@ export default function App() {
           title={diff.repoPath ? `Branch diff — ${diff.repoPath.split("/").pop()}` : "Branch diff"}
           result={diff.result}
           onClose={closeDiff}
+          getFullFile={getFullFile}
         />
       )}
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={() => void refresh()} />

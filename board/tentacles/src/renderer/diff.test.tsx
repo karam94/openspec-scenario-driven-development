@@ -120,3 +120,116 @@ describe("diff refreshes live only while the modal is open", () => {
     expect(api.getDiff).toHaveBeenCalledTimes(2); // no further requests once closed
   });
 });
+
+describe("apply-node git button is a ± affordance below the node label", () => {
+  it("renders the button glyph as ± and places it after the phase/state text", async () => {
+    mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([applyingChange()])),
+      getDiff: vi.fn().mockResolvedValue(diffModel),
+    });
+
+    render(<App />);
+    await screen.findByText("applying-demo");
+
+    const btn = screen.getByTitle("View branch diff");
+    expect(btn.textContent).toBe("±");
+
+    // The label (phase/state) comes first in the DOM; the button follows it.
+    const node = btn.closest(".node") as HTMLElement;
+    const state = node.querySelector(".state") as HTMLElement;
+    expect(state.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("diff modal lists files in a sidebar and shows one at a time", () => {
+  const twoFiles = {
+    ok: true as const,
+    files: [
+      { path: "a.txt", status: "modified" as const, hunks: [{ lines: [{ kind: "add" as const, text: "AAA" }] }] },
+      { path: "b.txt", status: "modified" as const, hunks: [{ lines: [{ kind: "add" as const, text: "BBB" }] }] },
+    ],
+  };
+
+  it("lists every changed file and switches the shown file on click", async () => {
+    mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([applyingChange()])),
+      getDiff: vi.fn().mockResolvedValue(twoFiles),
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await screen.findByText("applying-demo");
+    await user.click(screen.getByTitle("View branch diff"));
+
+    // Both files are listed in the sidebar.
+    expect(await screen.findByRole("button", { name: /a\.txt/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /b\.txt/ })).toBeTruthy();
+
+    // Only the first file's content shows initially.
+    expect(screen.getByText("AAA")).toBeTruthy();
+    expect(screen.queryByText("BBB")).toBeNull();
+
+    // Clicking the second file switches the shown content.
+    await user.click(screen.getByRole("button", { name: /b\.txt/ }));
+    expect(screen.getByText("BBB")).toBeTruthy();
+    expect(screen.queryByText("AAA")).toBeNull();
+  });
+});
+
+describe("diff modal can expand a file to its full contents with changes inline", () => {
+  const compact = {
+    ok: true as const,
+    files: [
+      {
+        path: "big.txt",
+        status: "modified" as const,
+        hunks: [{ lines: [{ kind: "context" as const, text: "ctx-near" }, { kind: "add" as const, text: "changed" }] }],
+      },
+    ],
+  };
+  const full = {
+    ok: true as const,
+    files: [
+      {
+        path: "big.txt",
+        status: "modified" as const,
+        hunks: [
+          {
+            lines: [
+              { kind: "context" as const, text: "ctx-far" },
+              { kind: "context" as const, text: "ctx-near" },
+              { kind: "add" as const, text: "changed" },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("fetches and shows the whole file on expand and returns to the compact hunks on collapse", async () => {
+    const api = mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([applyingChange()])),
+      getDiff: vi.fn().mockResolvedValue(compact),
+      getFileDiff: vi.fn().mockResolvedValue(full),
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await screen.findByText("applying-demo");
+    await user.click(screen.getByTitle("View branch diff"));
+
+    // Compact view: the far context line is not shown.
+    expect(await screen.findByText("changed")).toBeTruthy();
+    expect(screen.queryByText("ctx-far")).toBeNull();
+
+    // Expand → the full file (including the far context) is fetched and shown.
+    await user.click(screen.getByRole("button", { name: /expand full file/i }));
+    expect(api.getFileDiff).toHaveBeenCalledWith("/Code/repo-a", "big.txt");
+    expect(await screen.findByText("ctx-far")).toBeTruthy();
+
+    // Collapse → back to the compact hunks.
+    await user.click(screen.getByRole("button", { name: /collapse/i }));
+    expect(screen.queryByText("ctx-far")).toBeNull();
+    expect(screen.getByText("changed")).toBeTruthy();
+  });
+});

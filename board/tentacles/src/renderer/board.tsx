@@ -63,6 +63,8 @@ function ApplyNode({ c, openArtifacts, openDiff }: { c: Change } & WithOpen) {
   const showDiff = c.applying || c.applyDone;
   return (
     <div className={`node ${cls}`} onClick={onClick}>
+      <div className="phase">apply</div>
+      <div className="state">{label}</div>
       {showDiff && (
         <button
           className="git-btn"
@@ -72,11 +74,9 @@ function ApplyNode({ c, openArtifacts, openDiff }: { c: Change } & WithOpen) {
             openDiff(c.repoPath);
           }}
         >
-          ⎇
+          ±
         </button>
       )}
-      <div className="phase">apply</div>
-      <div className="state">{label}</div>
     </div>
   );
 }

@@ -102,6 +102,7 @@ export interface ChannelMap {
   getStatus: "board:getStatus";
   readFile: "board:readFile";
   getDiff: "board:getDiff";
+  getFileDiff: "board:getFileDiff";
   archive: "board:archive";
   getSettings: "board:getSettings";
   setSettings: "board:setSettings";
@@ -116,6 +117,7 @@ export interface ElectronAPI {
   getStatus(): Promise<StatusResult>;
   readFile(filePath: string): Promise<ReadFileResult>;
   getDiff(repoPath: string): Promise<DiffResult>;
+  getFileDiff(repoPath: string, filePath: string): Promise<DiffResult>;
   archive(payload: ArchiveArgs): Promise<ArchiveResult>;
   getSettings(): Promise<BoardSettings>;
   setSettings(payload: SetSettingsArgs): Promise<SetSettingsResult>;
