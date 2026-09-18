@@ -114,3 +114,24 @@ main { padding:20px 24px 60px; max-width:1200px; margin:0 auto; }
 .settings-actions { display:flex; justify-content:flex-end; margin-top:4px; }
 .settings-save { border:1px solid var(--accent); background:var(--accent); color:#fff; font-size:0.85rem; padding:6px 16px; border-radius:6px; cursor:pointer; }
 .settings-save:disabled { opacity:0.6; cursor:default; }
+/* settings tabs + setup tab */
+.settings-tabs { display:flex; gap:4px; padding:0 20px; border-bottom:1px solid var(--border); }
+.settings-tab { border:none; background:none; color:var(--muted); font-size:0.82rem; padding:9px 12px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.settings-tab:hover { color:var(--fg); }
+.settings-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.setup-panel { display:flex; flex-direction:column; gap:12px; }
+.setup-targets { display:flex; flex-direction:column; gap:8px; }
+.setup-target { display:flex; align-items:center; gap:8px; font-size:0.86rem; color:var(--fg); cursor:pointer; }
+.setup-actions { display:flex; gap:8px; }
+.setup-install { border:1px solid var(--accent); background:var(--accent); color:#fff; font-size:0.82rem; padding:6px 14px; border-radius:6px; cursor:pointer; }
+.setup-doctor { border:1px solid var(--border); background:none; color:var(--fg); font-size:0.82rem; padding:6px 14px; border-radius:6px; cursor:pointer; }
+.setup-install:disabled, .setup-doctor:disabled, .setup-repair:disabled { opacity:0.6; cursor:default; }
+.setup-repair { align-self:flex-start; border:1px solid var(--warn); background:none; color:var(--warn); font-size:0.8rem; padding:5px 12px; border-radius:6px; cursor:pointer; }
+.setup-results { border:1px solid var(--border); border-radius:8px; padding:8px 12px; }
+.setup-results-title { font-size:0.74rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; }
+.setup-results ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; }
+.setup-results li { display:flex; align-items:baseline; gap:8px; font-size:0.82rem; }
+.setup-results .row-icon { flex:0 0 auto; }
+.setup-results .row-label { color:var(--fg); }
+.setup-results .row-reason { color:var(--muted); font-size:0.76rem; }
+.setup-results .row-fail .row-label { color:#f87171; }
