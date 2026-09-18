@@ -454,17 +454,48 @@ async function fileDiffFullContext(repo: string, filePath: string): Promise<stri
   return untracked ?? "";
 }
 
+// Canonicalize a repo-relative path for containment. path.resolve is lexical, so a
+// symlinked directory inside the repo whose real target is outside would slip past a
+// prefix check; realpath dereferences it. The requested file may not exist yet
+// (deleted/untracked cases still reach git), so canonicalize the nearest existing
+// ancestor and re-append the missing tail. Returns null when the real target escapes
+// the repo's real root.
+function containedRealPath(repoRoot: string, filePath: string): string | null {
+  let root: string;
+  try {
+    root = fs.realpathSync(repoRoot);
+  } catch {
+    return null;
+  }
+  const target = path.resolve(root, filePath);
+  let existing = target;
+  const tail: string[] = [];
+  while (!fs.existsSync(existing)) {
+    tail.unshift(path.basename(existing));
+    const parent = path.dirname(existing);
+    if (parent === existing) break;
+    existing = parent;
+  }
+  let canonical: string;
+  try {
+    canonical = fs.realpathSync(existing);
+  } catch {
+    return null;
+  }
+  const full = tail.length ? path.join(canonical, ...tail) : canonical;
+  if (full !== root && !full.startsWith(root + path.sep)) return null;
+  return full;
+}
+
 export async function getFileDiff(args: Args, repoPath: string, filePath: string): Promise<DiffResult> {
   const repos = discoverRepos(args);
   const okRepo = repos.some((r) => path.resolve(r) === path.resolve(repoPath || ""));
   if (!okRepo) return { ok: false, error: "unknown repo" };
   if (!filePath) return { ok: false, error: "no file" };
   const repoRoot = path.resolve(repoPath);
-  const resolvedFile = path.resolve(repoRoot, filePath);
-  if (resolvedFile !== repoRoot && !resolvedFile.startsWith(repoRoot + path.sep)) {
-    return { ok: false, error: "path outside repo" };
-  }
-  const relFile = path.relative(repoRoot, resolvedFile);
+  const canonical = containedRealPath(repoRoot, filePath);
+  if (!canonical) return { ok: false, error: "path outside repo" };
+  const relFile = path.relative(fs.realpathSync(repoRoot), canonical);
   try {
     return { ok: true, files: parseDiff(await fileDiffFullContext(repoPath, relFile)) };
   } catch (e) {

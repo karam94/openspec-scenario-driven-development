@@ -311,4 +311,20 @@ describe("getFileDiff — full-context diff of one file", () => {
     expect(traversal.ok).toBe(false);
     expect(JSON.stringify(abs) + JSON.stringify(traversal)).not.toContain("TOP-SECRET-CONTENT");
   });
+
+  it("refuses a path through an in-repo directory symlink whose real target is outside the repo", async () => {
+    const dir = makeRepoWithBigChange();
+    const args: Args = { repos: [dir], root: "/nonexistent", depth: 1 };
+    const sentinel = fs.mkdtempSync(path.join(os.tmpdir(), "filediff-symlink-outside-"));
+    created.push(sentinel);
+    fs.writeFileSync(path.join(sentinel, "secret.txt"), "TOP-SECRET-CONTENT\n");
+    fs.symlinkSync(sentinel, path.join(dir, "escape"), "dir");
+
+    const viaExisting = await getFileDiff(args, dir, "escape/secret.txt");
+    const viaMissing = await getFileDiff(args, dir, "escape/nope.txt");
+
+    expect(viaExisting.ok).toBe(false);
+    expect(viaMissing.ok).toBe(false);
+    expect(JSON.stringify(viaExisting) + JSON.stringify(viaMissing)).not.toContain("TOP-SECRET-CONTENT");
+  });
 });
