@@ -12,10 +12,10 @@ async function openSettings(user: ReturnType<typeof userEvent.setup>) {
 describe("settings panel", () => {
   it("saves a new root and triggers a re-scan (refresh)", async () => {
     const getStatus = vi.fn().mockResolvedValue(makeStatus([]));
-    const setSettings = vi.fn().mockResolvedValue({ ok: true, root: "/new/root" });
+    const setSettings = vi.fn().mockResolvedValue({ ok: true, root: "/new/root", notifications: "enabled" });
     mockApi({
       getStatus,
-      getSettings: vi.fn().mockResolvedValue({ root: "/old/root" }),
+      getSettings: vi.fn().mockResolvedValue({ root: "/old/root", notifications: "enabled" }),
       setSettings,
     });
     const user = userEvent.setup();
@@ -30,7 +30,7 @@ describe("settings panel", () => {
     await user.type(input, "/new/root");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(setSettings).toHaveBeenCalledWith({ root: "/new/root" });
+    expect(setSettings).toHaveBeenCalledWith({ root: "/new/root", notifications: "enabled" });
     // a successful save closes the panel and re-fetches the board
     await waitFor(() => expect(screen.queryByLabelText("Scan root directory")).toBeNull());
     await waitFor(() => expect(getStatus.mock.calls.length).toBeGreaterThan(1));
@@ -50,5 +50,41 @@ describe("settings panel", () => {
 
     expect(await screen.findByText("That directory does not exist.")).toBeInTheDocument();
     expect(screen.getByLabelText("Scan root directory")).toBeInTheDocument();
+  });
+
+  it("loads the current notification preference and saves the selected one", async () => {
+    const setSettings = vi.fn().mockResolvedValue({ ok: true, root: "/root", notifications: "muted" });
+    mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([])),
+      getSettings: vi.fn().mockResolvedValue({ root: "/root", notifications: "silent" }),
+      setSettings,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await openSettings(user);
+
+    // the persisted preference is reflected in the control
+    await waitFor(() => expect(screen.getByLabelText("Mute notification sounds only")).toBeChecked());
+
+    // switch to muting notifications entirely and save
+    await user.click(screen.getByLabelText("Mute notifications"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(setSettings).toHaveBeenCalledWith({ root: "/root", notifications: "muted" });
+  });
+
+  it("defaults the notification control to on when the setting is absent", async () => {
+    mockApi({
+      getStatus: vi.fn().mockResolvedValue(makeStatus([])),
+      getSettings: vi.fn().mockResolvedValue({ root: "/root" }),
+      setSettings: vi.fn().mockResolvedValue({ ok: true, root: "/root", notifications: "enabled" }),
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await openSettings(user);
+
+    await waitFor(() => expect(screen.getByLabelText("Notifications on")).toBeChecked());
   });
 });
