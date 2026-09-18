@@ -28,6 +28,9 @@ const windowOpts = {
   preloadPath: path.join(__dirname, "../preload/preload.js"),
   indexPath: path.join(__dirname, "../renderer/index.html"),
   openExternal: (url: string) => shell.openExternal(url),
+  // Under the e2e harness (TENTACLES_E2E) launch the window hidden so the app
+  // never pops a window that steals macOS keyboard focus mid-run.
+  show: !process.env.TENTACLES_E2E,
 };
 
 // bootstrap registers IPC first, resolves the login-shell PATH before the first
@@ -38,6 +41,13 @@ const windowOpts = {
 const resolvePath = resolvePathFor(process.env, () => resolveShellPath(loginShellPath, process.env));
 
 app.whenReady().then(() => {
+  // Under the e2e harness, run as a macOS "accessory" app: no Dock icon and,
+  // crucially, the app never becomes the active/foreground app, so launching it
+  // for a test does not steal keyboard focus from whatever the user is typing in.
+  if (process.env.TENTACLES_E2E && process.platform === "darwin" && typeof app.setActivationPolicy === "function") {
+    app.setActivationPolicy("accessory");
+  }
+
   // Resolve the scan root: persisted setting → TENTACLES_ROOT → ~/Code. The root
   // is mutable main state (read fresh per scan via getArgs), so a Settings save
   // re-points scanning without a restart.

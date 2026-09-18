@@ -47,6 +47,10 @@ export interface WindowOpts {
   preloadPath: string;
   indexPath: string;
   openExternal?: (url: string) => void;
+  // When false the window is created hidden (used by the e2e harness so the
+  // launched app never pops a window and steals macOS keyboard focus). Defaults
+  // to shown for the real app.
+  show?: boolean;
 }
 
 // The secure renderer posture (ADR-0002): no direct Node in the renderer.
@@ -176,11 +180,12 @@ export function makeWindowOpenHandler(
   };
 }
 
-export function createWindow(BrowserWindowCtor: typeof BrowserWindow, { preloadPath, indexPath, openExternal }: WindowOpts): BrowserWindow {
+export function createWindow(BrowserWindowCtor: typeof BrowserWindow, { preloadPath, indexPath, openExternal, show }: WindowOpts): BrowserWindow {
   const win = new BrowserWindowCtor({
     width: 1200,
     height: 860,
     backgroundColor: "#0a0e1a",
+    show: show !== false,
     webPreferences: secureWebPreferences(preloadPath),
   });
   if (win.webContents && typeof win.webContents.setWindowOpenHandler === "function") {
