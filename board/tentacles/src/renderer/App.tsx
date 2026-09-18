@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { Change, StatusResult } from "../shared/ipc-contract";
+import type { Change, DiffResult, StatusResult } from "../shared/ipc-contract";
 import { RepoGroup } from "./board";
 import { Modal, type ModalSection } from "./modal";
+import { DiffModal } from "./diffModal";
 import { SettingsPanel } from "./settings";
 
 const REFRESH_MS = 15000;
@@ -46,6 +47,11 @@ export default function App() {
     sections: [],
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [diff, setDiff] = useState<{ open: boolean; repoPath: string | null; result: DiffResult | null }>({
+    open: false,
+    repoPath: null,
+    result: null,
+  });
 
   useLayoutEffect(() => {
     if (theme) document.documentElement.setAttribute("data-theme", theme);
@@ -112,6 +118,27 @@ export default function App() {
   }, []);
 
   const closeModal = useCallback(() => setModal((m) => ({ ...m, open: false })), []);
+
+  const fetchDiff = useCallback(async (repoPath: string) => {
+    try {
+      const result = await window.electronAPI.getDiff(repoPath);
+      setDiff((d) => (d.open && d.repoPath === repoPath ? { ...d, result } : d));
+    } catch {
+      setDiff((d) =>
+        d.open && d.repoPath === repoPath ? { ...d, result: { ok: false, error: "diff unavailable" } } : d
+      );
+    }
+  }, []);
+
+  const openDiff = useCallback(
+    (repoPath: string) => {
+      setDiff({ open: true, repoPath, result: null });
+      void fetchDiff(repoPath);
+    },
+    [fetchDiff]
+  );
+
+  const closeDiff = useCallback(() => setDiff((d) => ({ ...d, open: false })), []);
 
   const onArchive = useCallback(
     async (c: Change) => {
@@ -207,6 +234,7 @@ export default function App() {
         collapsed={collapsed.has(repo)}
         onToggle={toggleRepo}
         openArtifacts={openArtifacts}
+        openDiff={openDiff}
         onArchive={onArchive}
         archivingKeys={archiving}
         removingKeys={removing}
@@ -231,6 +259,14 @@ export default function App() {
       </header>
       <main>{main}</main>
       <Modal open={modal.open} title={modal.title} sections={modal.sections} onClose={closeModal} />
+      {diff.open && (
+        <DiffModal
+          open={diff.open}
+          title={diff.repoPath ? `Branch diff — ${diff.repoPath.split("/").pop()}` : "Branch diff"}
+          result={diff.result}
+          onClose={closeDiff}
+        />
+      )}
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={() => void refresh()} />
     </>
   );
