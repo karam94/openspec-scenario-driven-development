@@ -294,4 +294,21 @@ describe("getFileDiff — full-context diff of one file", () => {
     const res = await getFileDiff(args, "/etc", "passwd");
     expect(res.ok).toBe(false);
   });
+
+  it("refuses a filePath that escapes a valid discovered repo and never exposes its content", async () => {
+    const dir = makeRepoWithBigChange();
+    const args: Args = { repos: [dir], root: "/nonexistent", depth: 1 };
+    const sentinel = fs.mkdtempSync(path.join(os.tmpdir(), "filediff-outside-"));
+    created.push(sentinel);
+    const secretPath = path.join(sentinel, "secret.txt");
+    fs.writeFileSync(secretPath, "TOP-SECRET-CONTENT\n");
+    const rel = path.relative(dir, secretPath);
+
+    const abs = await getFileDiff(args, dir, secretPath);
+    const traversal = await getFileDiff(args, dir, rel);
+
+    expect(abs.ok).toBe(false);
+    expect(traversal.ok).toBe(false);
+    expect(JSON.stringify(abs) + JSON.stringify(traversal)).not.toContain("TOP-SECRET-CONTENT");
+  });
 });

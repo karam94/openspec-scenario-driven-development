@@ -459,8 +459,14 @@ export async function getFileDiff(args: Args, repoPath: string, filePath: string
   const okRepo = repos.some((r) => path.resolve(r) === path.resolve(repoPath || ""));
   if (!okRepo) return { ok: false, error: "unknown repo" };
   if (!filePath) return { ok: false, error: "no file" };
+  const repoRoot = path.resolve(repoPath);
+  const resolvedFile = path.resolve(repoRoot, filePath);
+  if (resolvedFile !== repoRoot && !resolvedFile.startsWith(repoRoot + path.sep)) {
+    return { ok: false, error: "path outside repo" };
+  }
+  const relFile = path.relative(repoRoot, resolvedFile);
   try {
-    return { ok: true, files: parseDiff(await fileDiffFullContext(repoPath, filePath)) };
+    return { ok: true, files: parseDiff(await fileDiffFullContext(repoPath, relFile)) };
   } catch (e) {
     return { ok: false, error: String(e) };
   }

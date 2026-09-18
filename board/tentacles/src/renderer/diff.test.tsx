@@ -174,6 +174,50 @@ describe("diff modal lists files in a sidebar and shows one at a time", () => {
     expect(screen.getByText("BBB")).toBeTruthy();
     expect(screen.queryByText("AAA")).toBeNull();
   });
+
+  it("clamps to a valid file when a live refresh drops the selected file", async () => {
+    vi.useFakeTimers();
+    try {
+      const shrinking = vi
+        .fn()
+        .mockResolvedValueOnce(twoFiles)
+        .mockResolvedValue({
+          ok: true as const,
+          files: [
+            { path: "a.txt", status: "modified" as const, hunks: [{ lines: [{ kind: "add" as const, text: "AAA" }] }] },
+          ],
+        });
+      mockApi({
+        getStatus: vi.fn().mockResolvedValue(makeStatus([applyingChange()])),
+        getDiff: shrinking,
+      });
+
+      render(<App />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      fireEvent.click(screen.getByTitle("View branch diff"));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      // Select the second file, then the next poll returns a list without it.
+      fireEvent.click(screen.getByRole("button", { name: /b\.txt/ }));
+      expect(screen.getByText("BBB")).toBeTruthy();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15000);
+      });
+
+      // The remaining file is shown; the stale selection does not leak or crash.
+      expect(screen.getByText("AAA")).toBeTruthy();
+      expect(screen.queryByText("BBB")).toBeNull();
+      expect(screen.queryByRole("button", { name: /b\.txt/ })).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("diff modal can expand a file to its full contents with changes inline", () => {
