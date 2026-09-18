@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import type { Change, ElectronAPI, Phase, StatusResult } from "../shared/ipc-contract";
 
 export function phase(id: Phase["id"], over: Partial<Phase> = {}): Phase {
-  return { id, applicable: true, done: false, files: [], ...over };
+  return { id, applicable: true, done: false, files: [], fileExists: false, ...over };
 }
 
 export function makeChange(over: Partial<Change> = {}): Change {

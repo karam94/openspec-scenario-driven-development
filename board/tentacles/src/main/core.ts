@@ -303,6 +303,7 @@ export async function shapeChange(repo: string, change: string, status: RawStatu
       applicable,
       done,
       files,
+      fileExists: existing.length > 0,
     };
   });
   const nextIdx = phases.findIndex((p) => p.applicable && !p.done);
