@@ -35,6 +35,17 @@ describe("openWorktree path guard (core.openWorktree)", () => {
     expect(opener).toHaveBeenCalledWith(repo);
   });
 
+  it("opens the canonical discovered root, never the raw non-canonical input", async () => {
+    // Lexically equal to `repo` once resolved but NOT its canonical string form
+    // (built by concatenation so it stays un-normalised); a symlink segment could
+    // otherwise make the OS resolve elsewhere than the validated path.
+    const tricky = repo + "/sub/..";
+    const res = await core.openWorktree(args(), tricky, opener);
+    expect(res).toEqual({ ok: true });
+    expect(opener).toHaveBeenCalledWith(path.resolve(repo));
+    expect(opener).not.toHaveBeenCalledWith(tricky);
+  });
+
   it("surfaces the OS error string when the opener reports one", async () => {
     opener = vi.fn().mockResolvedValue("no such file or directory");
     const res = await core.openWorktree(args(), repo, opener);

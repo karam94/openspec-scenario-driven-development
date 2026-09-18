@@ -640,9 +640,12 @@ export async function openWorktree(
   opener: PathOpener
 ): Promise<OpenPathResult> {
   const repos = discoverRepos(args);
-  const okRepo = repos.some((r) => path.resolve(r) === path.resolve(target || ""));
-  if (!okRepo) return { ok: false, error: "unknown repo or worktree" };
-  const error = await opener(target);
+  const match = repos.find((r) => path.resolve(r) === path.resolve(target || ""));
+  if (!match) return { ok: false, error: "unknown repo or worktree" };
+  // Open the matched discovered root itself, never the renderer-supplied string:
+  // a lexically-equal but non-canonical input (e.g. `<root>/link/..`) must never
+  // be the path the OS actually resolves.
+  const error = await opener(path.resolve(match));
   return error ? { ok: false, error } : { ok: true };
 }
 
