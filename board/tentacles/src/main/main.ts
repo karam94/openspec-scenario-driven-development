@@ -19,10 +19,6 @@ import {
 
 const args = core.defaultArgs();
 
-// Native completion notifications: the notifier holds last-seen completion state
-// across scans and shows a native banner per newly-completed phase / change.
-const notifier = makeNotifier(makeNativeNotify(Notification));
-
 // Runs from build/main/ after compile, so preload and the renderer index resolve
 // relative to that: build/preload/preload.js and build/renderer/index.html. The
 // loadFile-under-file: posture (ADR-0002) is unchanged — still local files.
@@ -68,6 +64,15 @@ app.whenReady().then(() => {
     };
     return win ? dialog.showOpenDialog(win, options) : dialog.showOpenDialog(options);
   });
+
+  // Native completion notifications: the notifier holds last-seen completion
+  // state across scans and shows a native banner per newly-completed phase /
+  // change, gated on the persisted preference (read fresh per scan so a Settings
+  // save takes effect without a restart).
+  const notifier = makeNotifier(
+    makeNativeNotify(Notification),
+    () => core.resolveNotifications(settings.read())
+  );
 
   return bootstrap({
     app,

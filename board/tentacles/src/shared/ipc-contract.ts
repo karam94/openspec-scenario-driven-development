@@ -53,11 +53,19 @@ export type ReadFileResult = { ok: true; contents: string } | { ok: false; error
 
 export interface BoardSettings {
   root: string;
+  notifications: NotificationSetting;
 }
 export interface SetSettingsArgs {
   root: string;
+  notifications?: NotificationSetting;
 }
-export type SetSettingsResult = { ok: true; root: string } | { ok: false; error: string };
+export type SetSettingsResult =
+  | { ok: true; root: string; notifications: NotificationSetting }
+  | { ok: false; error: string };
+
+// How completion notifications are surfaced: a full banner with sound, a silent
+// banner (sounds muted), or nothing at all (notifications muted).
+export type NotificationSetting = "enabled" | "silent" | "muted";
 
 // A native directory-picker result. `path` is the chosen directory, or null when
 // the user cancels the dialog (the renderer then leaves the input untouched).

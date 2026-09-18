@@ -48,8 +48,8 @@ export function mockApi(over: Partial<ElectronAPI> = {}): MockApi {
     getStatus: vi.fn().mockResolvedValue(makeStatus([])),
     readFile: vi.fn().mockResolvedValue({ ok: true, contents: "" }),
     archive: vi.fn().mockResolvedValue({ ok: true }),
-    getSettings: vi.fn().mockResolvedValue({ root: "/Code" }),
-    setSettings: vi.fn().mockResolvedValue({ ok: true, root: "/Code" }),
+    getSettings: vi.fn().mockResolvedValue({ root: "/Code", notifications: "enabled" }),
+    setSettings: vi.fn().mockResolvedValue({ ok: true, root: "/Code", notifications: "enabled" }),
     chooseDirectory: vi.fn().mockResolvedValue({ path: null }),
     ...over,
   } as unknown as MockApi;

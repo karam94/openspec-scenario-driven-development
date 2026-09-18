@@ -104,6 +104,9 @@ main { padding:20px 24px 60px; max-width:1200px; margin:0 auto; }
 .settings-browse { border:1px solid var(--border); background:none; color:var(--fg); font-size:0.85rem; padding:8px 14px; border-radius:6px; cursor:pointer; white-space:nowrap; }
 .settings-browse:hover { border-color:var(--accent); color:var(--accent); }
 .settings-error { color:#f87171; font-size:0.82rem; }
+.settings-radios { display:flex; flex-direction:column; gap:6px; }
+.settings-radio { display:flex; align-items:center; gap:8px; font-size:0.85rem; color:var(--fg); cursor:pointer; }
+.settings-radio input { accent-color:var(--accent); cursor:pointer; }
 .settings-actions { display:flex; justify-content:flex-end; margin-top:4px; }
 .settings-save { border:1px solid var(--accent); background:var(--accent); color:#fff; font-size:0.85rem; padding:6px 16px; border-radius:6px; cursor:pointer; }
 .settings-save:disabled { opacity:0.6; cursor:default; }
