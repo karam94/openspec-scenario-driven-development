@@ -53,11 +53,19 @@ export type ReadFileResult = { ok: true; contents: string } | { ok: false; error
 
 export interface BoardSettings {
   root: string;
+  notifications: NotificationSetting;
 }
 export interface SetSettingsArgs {
   root: string;
+  notifications?: NotificationSetting;
 }
-export type SetSettingsResult = { ok: true; root: string } | { ok: false; error: string };
+export type SetSettingsResult =
+  | { ok: true; root: string; notifications: NotificationSetting }
+  | { ok: false; error: string };
+
+// How completion notifications are surfaced: a full banner with sound, a silent
+// banner (sounds muted), or nothing at all (notifications muted).
+export type NotificationSetting = "enabled" | "silent" | "muted";
 
 // Exact method → channel-name mapping: the single source of truth for the
 // boundary. Both the preload bridge and the main-process IPC registry are typed

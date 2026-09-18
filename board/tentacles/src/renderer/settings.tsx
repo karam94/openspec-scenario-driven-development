@@ -1,4 +1,11 @@
 import { useEffect, useState } from "react";
+import type { NotificationSetting } from "../shared/ipc-contract";
+
+const NOTIFICATION_OPTIONS: Array<{ value: NotificationSetting; label: string }> = [
+  { value: "enabled", label: "Notifications on" },
+  { value: "silent", label: "Mute notification sounds only" },
+  { value: "muted", label: "Mute notifications" },
+];
 
 export function SettingsPanel({
   open,
@@ -10,6 +17,7 @@ export function SettingsPanel({
   onSaved: () => void;
 }) {
   const [root, setRoot] = useState("");
+  const [notifications, setNotifications] = useState<NotificationSetting>("enabled");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -20,6 +28,7 @@ export function SettingsPanel({
       try {
         const s = await window.electronAPI.getSettings();
         setRoot(s.root);
+        setNotifications(s.notifications ?? "enabled");
       } catch {
         /* leave blank */
       }
@@ -38,7 +47,7 @@ export function SettingsPanel({
     setSaving(true);
     setError("");
     try {
-      const res = await window.electronAPI.setSettings({ root });
+      const res = await window.electronAPI.setSettings({ root, notifications });
       if (res.ok) {
         onSaved();
         onClose();
@@ -82,6 +91,21 @@ export function SettingsPanel({
             onChange={(e) => setRoot(e.target.value)}
           />
           {error && <div className="settings-error">{error}</div>}
+          <span className="settings-label">Notifications</span>
+          <div className="settings-radios" role="radiogroup" aria-label="Notifications">
+            {NOTIFICATION_OPTIONS.map((opt) => (
+              <label key={opt.value} className="settings-radio">
+                <input
+                  type="radio"
+                  name="notifications"
+                  value={opt.value}
+                  checked={notifications === opt.value}
+                  onChange={() => setNotifications(opt.value)}
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
           <div className="settings-actions">
             <button className="settings-save" onClick={() => void save()} disabled={saving}>
               {saving ? "Saving…" : "Save"}

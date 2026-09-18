@@ -11,8 +11,8 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { App, BrowserWindow, IpcMain, IpcMainInvokeEvent, Notification, WebPreferences } from "electron";
-import { computeNotifications, parseSettings, validateRoot, dirExists } from "./core";
-import type { Args, BoardNotification, NotifyState, Settings } from "./core";
+import { computeNotifications, parseSettings, validateRoot, dirExists, parseNotificationSetting, resolveNotifications } from "./core";
+import type { Args, BoardNotification, NotificationSetting, NotifyState, Settings } from "./core";
 import type {
   ArchiveArgs,
   ArchiveResult,
@@ -92,14 +92,18 @@ export function makeHandlers(
       const { repoPath, change } = payload || ({} as Partial<ArchiveArgs>);
       return core.archiveChange(getArgs(), repoPath as string, change as string);
     },
-    getSettings: (): BoardSettings => ({ root: settings ? settings.getRoot() : getArgs().root }),
+    getSettings: (): BoardSettings => ({
+      root: settings ? settings.getRoot() : getArgs().root,
+      notifications: settings ? resolveNotifications(settings.read()) : "enabled",
+    }),
     setSettings: (_event: IpcMainInvokeEvent, payload: SetSettingsArgs | undefined): SetSettingsResult => {
       if (!settings) return { ok: false, error: "settings unavailable" };
       const res = validateRoot(payload?.root ?? "", settings.isDir ?? dirExists, settings.home);
       if (!res.ok) return res;
-      settings.write({ root: res.root });
+      const notifications = parseNotificationSetting(payload?.notifications ?? settings.read().notifications);
+      settings.write({ root: res.root, notifications });
       settings.setRoot(res.root);
-      return { ok: true, root: res.root };
+      return { ok: true, root: res.root, notifications };
     },
   };
 }
@@ -140,16 +144,23 @@ export function writeSettingsFile(filePath: string, settings: Settings): void {
 
 // Completion-notification glue: holds the last-seen state across scans and shows
 // a native notification per decided edge. The decision (computeNotifications) is
-// unit-tested in core; the native `show` is the untested boundary.
-export type NativeNotify = (n: BoardNotification) => void;
+// unit-tested in core; the native `show` is the untested boundary. `getSetting`
+// (read fresh per scan) gates the presentation: "muted" fires nothing, "silent"
+// fires a soundless banner, "enabled" fires with sound. State advances on every
+// scan regardless, so muting suppresses firing without replaying missed edges
+// once re-enabled.
+export type NativeNotify = (n: BoardNotification, opts: { silent: boolean }) => void;
 
-export function makeNotifier(show: NativeNotify) {
+export function makeNotifier(show: NativeNotify, getSetting: () => NotificationSetting = () => "enabled") {
   let state: NotifyState | null = null;
   return {
     observe(changes: Change[]): void {
       const { next, notifications } = computeNotifications(state, changes);
       state = next;
-      for (const n of notifications) show(n);
+      const setting = getSetting();
+      if (setting === "muted") return;
+      const silent = setting === "silent";
+      for (const n of notifications) show(n, { silent });
     },
   };
 }
@@ -157,8 +168,8 @@ export function makeNotifier(show: NativeNotify) {
 // Builds the native show from Electron's Notification constructor. main.ts passes
 // the real one; this is the only place a native OS banner is created.
 export function makeNativeNotify(NotificationCtor: typeof Notification): NativeNotify {
-  return (n) => {
-    new NotificationCtor({ title: n.title, body: n.body }).show();
+  return (n, opts) => {
+    new NotificationCtor({ title: n.title, body: n.body, silent: opts.silent }).show();
   };
 }
 

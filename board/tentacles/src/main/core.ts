@@ -20,12 +20,15 @@ import type {
   Apply,
   ArchiveResult,
   Change,
+  NotificationSetting,
   Phase,
   PhaseId,
   Pr,
   ReadFileResult,
   StatusResult,
 } from "../shared/ipc-contract";
+
+export type { NotificationSetting } from "../shared/ipc-contract";
 
 export interface Args {
   repos: string[];
@@ -445,18 +448,37 @@ export function computeNotifications(
 
 export interface Settings {
   root?: string;
+  notifications?: NotificationSetting;
+}
+
+// Normalise any persisted/incoming value to a valid tri-state, defaulting to
+// "enabled" (full banner + sound) for absent or unrecognised input.
+export function parseNotificationSetting(v: unknown): NotificationSetting {
+  return v === "silent" || v === "muted" || v === "enabled" ? v : "enabled";
 }
 
 export function parseSettings(text: string): Settings {
   try {
     const o = JSON.parse(text) as unknown;
-    if (o && typeof o === "object" && typeof (o as { root?: unknown }).root === "string") {
-      return { root: (o as { root: string }).root };
+    if (o && typeof o === "object") {
+      const out: Settings = {};
+      const root = (o as { root?: unknown }).root;
+      if (typeof root === "string") out.root = root;
+      const notifications = (o as { notifications?: unknown }).notifications;
+      if (notifications === "silent" || notifications === "muted" || notifications === "enabled") {
+        out.notifications = notifications;
+      }
+      return out;
     }
   } catch {
     /* fall through to empty */
   }
   return {};
+}
+
+// The effective notification preference for a persisted settings object.
+export function resolveNotifications(settings: Settings): NotificationSetting {
+  return parseNotificationSetting(settings.notifications);
 }
 
 export function expandTilde(p: string, home: string = os.homedir()): string {
@@ -570,6 +592,8 @@ export default {
   shapeChange,
   computeNotifications,
   parseSettings,
+  parseNotificationSetting,
+  resolveNotifications,
   expandTilde,
   dirExists,
   validateRoot,
