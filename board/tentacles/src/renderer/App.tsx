@@ -3,6 +3,7 @@ import type { Change, StatusResult } from "../shared/ipc-contract";
 import { RepoGroup } from "./board";
 import { Modal, type ModalSection } from "./modal";
 import { SettingsPanel } from "./settings";
+import notificationSoundUrl from "./assets/msn-message.mp3";
 
 const REFRESH_MS = 15000;
 type ThemeChoice = "light" | "dark" | null;
@@ -86,6 +87,14 @@ export default function App() {
     const id = setInterval(() => void refresh(), REFRESH_MS);
     return () => clearInterval(id);
   }, [refresh]);
+
+  useEffect(() => {
+    const audio = new Audio(notificationSoundUrl);
+    return window.electronAPI.onNotificationSound(() => {
+      audio.currentTime = 0;
+      void audio.play().catch(() => {});
+    });
+  }, []);
 
   const openArtifacts = useCallback(async (files: string[]) => {
     if (files.length === 0) return;
