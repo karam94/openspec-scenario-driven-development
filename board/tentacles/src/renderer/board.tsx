@@ -111,36 +111,6 @@ function DoneNode({ c }: { c: Change }) {
   );
 }
 
-function ApplyBar({ c }: { c: Change }) {
-  const a = c.apply;
-  if (a.source === "tasks.md" && a.total) {
-    return (
-      <div className="apply">
-        <div className="bar">
-          <i style={{ width: `${Math.round((100 * (a.done || 0)) / a.total)}%` }} />
-        </div>
-        <div className="apply-label">
-          <span>apply progress</span>
-          <span>
-            {a.done || 0} / {a.total} tasks
-          </span>
-        </div>
-      </div>
-    );
-  }
-  if (a.source === "commits") {
-    return (
-      <div className="apply">
-        <div className="apply-label">
-          <span>apply progress</span>
-          <span>{a.commits} commit(s) · tasks.md not ticked</span>
-        </div>
-      </div>
-    );
-  }
-  return null;
-}
-
 export function ChangeCard({
   c,
   showBranch,
@@ -172,6 +142,15 @@ export function ChangeCard({
         {typeBadge}
         {badge}
         <span className="crepo">{c.schema}</span>
+        <button
+          className="finder-btn"
+          onClick={async () => {
+            const res = await window.electronAPI.openPath(c.repoPath);
+            if (!res.ok) window.alert("Could not open folder: " + res.error);
+          }}
+        >
+          View in Finder
+        </button>
         <button className="archive-btn" onClick={() => onArchive(c)} disabled={busy}>
           {busy ? "Archiving…" : "Archive"}
         </button>
@@ -190,7 +169,6 @@ export function ChangeCard({
         <div className="arrow">→</div>
         <DoneNode c={c} />
       </div>
-      <ApplyBar c={c} />
     </div>
   );
 }

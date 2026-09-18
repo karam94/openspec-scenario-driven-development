@@ -91,6 +91,12 @@ export type NotificationSetting = "enabled" | "silent" | "muted";
 // the user cancels the dialog (the renderer then leaves the input untouched).
 export type ChooseDirectoryResult = { path: string | null };
 
+// The result of asking the OS to reveal a worktree folder in its file browser.
+// `ok` is false with an error string when the path could not be opened (missing
+// folder, no handler); the renderer surfaces the failure rather than silently
+// swallowing it.
+export type OpenPathResult = { ok: true } | { ok: false; error: string };
+
 // Exact method → channel-name mapping: the single source of truth for the
 // boundary. Both the preload bridge and the main-process IPC registry are typed
 // against it, so a typo, a missing channel, OR a swap (mapping a method to a
@@ -102,6 +108,7 @@ export interface ChannelMap {
   getSettings: "board:getSettings";
   setSettings: "board:setSettings";
   chooseDirectory: "board:chooseDirectory";
+  openPath: "board:openPath";
 }
 
 export type Channel = ChannelMap[keyof ChannelMap];
@@ -115,4 +122,5 @@ export interface ElectronAPI {
   getSettings(): Promise<BoardSettings>;
   setSettings(payload: SetSettingsArgs): Promise<SetSettingsResult>;
   chooseDirectory(): Promise<ChooseDirectoryResult>;
+  openPath(target: string): Promise<OpenPathResult>;
 }

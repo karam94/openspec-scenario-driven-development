@@ -41,8 +41,10 @@ main { padding:20px 24px 60px; max-width:1200px; margin:0 auto; }
 .repo-summary { font-size:0.74rem; color:var(--muted); margin-left:auto; }
 .repo-body { padding:12px 0 0 4px; }
 .repo-group.collapsed .repo-body { display:none; }
-.archive-btn { margin-left:auto; border:1px solid var(--border); background:none; color:var(--muted); font-size:0.72rem; padding:3px 10px; border-radius:6px; cursor:pointer; }
+.archive-btn { border:1px solid var(--border); background:none; color:var(--muted); font-size:0.72rem; padding:3px 10px; border-radius:6px; cursor:pointer; }
 .archive-btn:hover { border-color:var(--warn); color:var(--warn); }
+.finder-btn { margin-left:auto; border:1px solid var(--border); background:none; color:var(--muted); font-size:0.72rem; padding:3px 10px; border-radius:6px; cursor:pointer; }
+.finder-btn:hover { border-color:var(--accent); color:var(--accent); }
 .crepo { font-size:0.75rem; color:var(--muted); font-family:ui-monospace,monospace; }
 .badge { font-size:0.66rem; padding:2px 9px; border-radius:999px; font-weight:700; letter-spacing:.03em; }
 .badge.complete { background:color-mix(in srgb,var(--done) 20%,transparent); color:var(--done); }
@@ -66,10 +68,6 @@ main { padding:20px 24px 60px; max-width:1200px; margin:0 auto; }
 .phase { font-size:0.82rem; font-weight:600; text-transform:capitalize; }
 .state { font-size:0.68rem; color:var(--muted); margin-top:3px; }
 .arrow { align-self:center; color:var(--pending); padding:0 3px 8px; }
-.apply { margin-top:12px; }
-.bar { height:8px; border-radius:4px; background:var(--border); overflow:hidden; }
-.bar > i { display:block; height:100%; background:linear-gradient(90deg,var(--done),color-mix(in srgb,var(--done) 70%,#fff)); transition:width .4s; }
-.apply-label { font-size:0.74rem; color:var(--muted); margin-top:5px; display:flex; justify-content:space-between; }
 .empty { text-align:center; color:var(--muted); padding:60px 20px; }
 .err { color:var(--warn); font-size:0.85rem; padding:10px 0; }
 /* modal */

@@ -79,7 +79,7 @@ describe("the renderer renders the board state", () => {
     expect(grillNode?.className).toContain("clickable");
   });
 
-  it("shows apply progress for the tasks.md source", async () => {
+  it("shows apply progress on the apply node without a redundant progress bar", async () => {
     const c = makeChange({
       change: "tasks-apply",
       planningComplete: true,
@@ -91,12 +91,15 @@ describe("the renderer renders the board state", () => {
     const { container } = render(<App />);
     await screen.findByText("tasks-apply");
 
-    expect(screen.getByText("2 / 4 tasks")).toBeInTheDocument();
-    const bar = container.querySelector(".bar > i") as HTMLElement | null;
-    expect(bar?.style.width).toBe("50%");
+    // the apply node still carries the x/y count
+    expect(screen.getByText("2/4")).toBeInTheDocument();
+    // but the redundant horizontal progress bar is gone
+    expect(container.querySelector(".apply")).toBeNull();
+    expect(container.querySelector(".bar")).toBeNull();
+    expect(screen.queryByText("apply progress")).toBeNull();
   });
 
-  it("shows apply progress for the commits source with no task bar", async () => {
+  it("shows commit-source apply on the apply node without a progress bar", async () => {
     const c = makeChange({
       change: "commits-apply",
       planningComplete: true,
@@ -108,8 +111,26 @@ describe("the renderer renders the board state", () => {
     const { container } = render(<App />);
     await screen.findByText("commits-apply");
 
-    expect(screen.getByText("5 commit(s) · tasks.md not ticked")).toBeInTheDocument();
-    expect(container.querySelector(".bar")).toBeNull();
+    // the apply node carries the commit count
+    expect(screen.getByText("5 commit(s)")).toBeInTheDocument();
+    // no bar and no "tasks.md not ticked" footer any more
+    expect(container.querySelector(".apply")).toBeNull();
+    expect(screen.queryByText(/tasks\.md not ticked/)).toBeNull();
+  });
+
+  it("reveals the worktree folder in the OS file browser when View in Finder is clicked", async () => {
+    const openPath = vi.fn().mockResolvedValue({ ok: true });
+    const c = makeChange({ change: "finder-change", repoPath: "/Code/wings-core-a" });
+    mockApi({ getStatus: vi.fn().mockResolvedValue(makeStatus([c])), openPath });
+
+    render(<App />);
+    await screen.findByText("finder-change");
+
+    const card = screen.getByText("finder-change").closest(".change") as HTMLElement;
+    const btn = within(card).getByRole("button", { name: /view in finder/i });
+    btn.click();
+
+    expect(openPath).toHaveBeenCalledWith("/Code/wings-core-a");
   });
 
   it("renders the review and done nodes reflecting review and PR state", async () => {
